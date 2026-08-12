@@ -59,6 +59,9 @@
 
   --animate-bounce-in: bounce-in 0.6s cubic-bezier(0.22, 1.2, 0.36, 1) both;
   --animate-rise: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-step-in: step-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-step-in-back: step-in-back 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+
 }
 
 :root {

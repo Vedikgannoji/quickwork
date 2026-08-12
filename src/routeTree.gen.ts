@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HireRouteImport } from './routes/hire'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
+import { Route as PostJobRouteImport } from './routes/post-job'
 import { Route as WorkRouteImport } from './routes/work'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const HowItWorksRoute = HowItWorksRouteImport.update({
   path: '/how-it-works',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PostJobRoute = PostJobRouteImport.update({
+  id: '/post-job',
+  path: '/post-job',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WorkRoute = WorkRouteImport.update({
   id: '/work',
   path: '/work',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/hire': typeof HireRoute
   '/how-it-works': typeof HowItWorksRoute
+  '/post-job': typeof PostJobRoute
   '/work': typeof WorkRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/hire': typeof HireRoute
   '/how-it-works': typeof HowItWorksRoute
+  '/post-job': typeof PostJobRoute
   '/work': typeof WorkRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,22 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/hire': typeof HireRoute
   '/how-it-works': typeof HowItWorksRoute
+  '/post-job': typeof PostJobRoute
   '/work': typeof WorkRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/hire' | '/how-it-works' | '/work'
+  fullPaths: '/' | '/hire' | '/how-it-works' | '/post-job' | '/work'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/hire' | '/how-it-works' | '/work'
-  id: '__root__' | '/' | '/hire' | '/how-it-works' | '/work'
+  to: '/' | '/hire' | '/how-it-works' | '/post-job' | '/work'
+  id: '__root__' | '/' | '/hire' | '/how-it-works' | '/post-job' | '/work'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HireRoute: typeof HireRoute
   HowItWorksRoute: typeof HowItWorksRoute
+  PostJobRoute: typeof PostJobRoute
   WorkRoute: typeof WorkRoute
 }
 
@@ -92,6 +102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HowItWorksRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/post-job': {
+      id: '/post-job'
+      path: '/post-job'
+      fullPath: '/post-job'
+      preLoaderRoute: typeof PostJobRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/work': {
       id: '/work'
       path: '/work'
@@ -106,6 +123,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HireRoute: HireRoute,
   HowItWorksRoute: HowItWorksRoute,
+  PostJobRoute: PostJobRoute,
   WorkRoute: WorkRoute,
 }
 export const routeTree = rootRouteImport
