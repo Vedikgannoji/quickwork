@@ -194,8 +194,8 @@ function ProfilePage() {
         <div className="lg:col-span-8">
           <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-8 shadow-lift">
             <div className="absolute inset-x-0 top-0 h-32 bg-[image:linear-gradient(135deg,var(--brand),var(--brand-deep))] opacity-90" />
-            <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end">
-              <div className="relative">
+            <div className="relative flex flex-col items-start gap-6 lg:flex-row lg:items-end">
+              <div className="relative shrink-0">
                 <div className="flex size-28 items-center justify-center rounded-2xl border-4 border-card bg-[image:linear-gradient(135deg,var(--brand),var(--brand-deep))] font-display text-3xl font-bold text-primary-foreground shadow-brand">
                   RM
                 </div>
@@ -205,7 +205,7 @@ function ProfilePage() {
                   </span>
                 )}
               </div>
-              <div className="flex-1 pb-1">
+              <div className="min-w-0 flex-1 pb-1">
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-3xl font-bold">Rahul Mehta</h1>
                   <VerificationBadge state={verificationState} />
@@ -218,11 +218,11 @@ function ProfilePage() {
                   <MapPin className="size-4" /> Andheri East, Mumbai · 3.2 km from you
                 </p>
               </div>
-              <div className="flex shrink-0 gap-2">
-                <Button variant="outline" size="lg">
+              <div className="flex w-full shrink-0 gap-2 lg:w-auto">
+                <Button variant="outline" size="lg" className="flex-1 lg:flex-initial">
                   Edit profile
                 </Button>
-                <Button variant="hero" size="lg" asChild>
+                <Button variant="hero" size="lg" className="flex-1 lg:flex-initial" asChild>
                   <Link to="/work">
                     Find shifts <ArrowRight />
                   </Link>
