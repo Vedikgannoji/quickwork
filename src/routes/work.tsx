@@ -198,8 +198,8 @@ function WorkPage() {
             </p>
           </div>
 
-          <Button variant="outline" size="lg" className="mt-6 w-full">
-            Edit profile
+          <Button variant="outline" size="lg" className="mt-6 w-full" asChild>
+            <Link to="/profile">Edit profile</Link>
           </Button>
         </aside>
       </div>
