@@ -218,7 +218,7 @@ function ProfilePage() {
                   <MapPin className="size-4" /> Andheri East, Mumbai · 3.2 km from you
                 </p>
               </div>
-              <div className="flex w-full shrink-0 gap-2 lg:w-auto">
+              <div className="flex w-full shrink-0 gap-2 lg:w-auto lg:flex-col">
                 <Button variant="outline" size="lg" className="flex-1 lg:flex-initial">
                   Edit profile
                 </Button>
