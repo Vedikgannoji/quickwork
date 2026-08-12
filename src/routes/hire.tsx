@@ -96,8 +96,12 @@ function HirePage() {
         >
           <h2 className="text-2xl">Post a shift</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Six fields. Workers see it instantly.
+            Six fields. Workers see it instantly. Prefer a guided flow?{" "}
+            <Link to="/post-job" className="story-link font-semibold text-primary">
+              Use the 4-step wizard
+            </Link>
           </p>
+
 
           <div className="mt-7 grid gap-5 sm:grid-cols-2">
             <div className="grid gap-2">
