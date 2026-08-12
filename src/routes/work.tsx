@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { CalendarDays, Check, Clock, MapPin, Star, Utensils, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -198,8 +198,8 @@ function WorkPage() {
             </p>
           </div>
 
-          <Button variant="outline" size="lg" className="mt-6 w-full">
-            Edit profile
+          <Button variant="outline" size="lg" className="mt-6 w-full" asChild>
+            <Link to="/profile">Edit profile</Link>
           </Button>
         </aside>
       </div>
