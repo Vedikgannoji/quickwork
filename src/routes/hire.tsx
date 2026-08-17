@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarDays, CheckCircle2, Clock, MapPin, Plus, Star, Users, Wallet } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock, Lock, MapPin, Plus, Star, Users, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VerifiedBadge } from "@/components/verified-badge";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/hire")({
   head: () => ({
@@ -28,33 +29,14 @@ export const Route = createFileRoute("/hire")({
   component: HirePage,
 });
 
+// ─── Mock data ────────────────────────────────────────────────────────────────
+
 const facilities = ["Meals provided", "Transport", "Uniform", "Locker room"];
 
 const jobs = [
-  {
-    role: "Banquet servers",
-    count: "6 of 8 booked",
-    date: "Fri, 14 Aug · 5:00 PM",
-    area: "Andheri East",
-    wage: "₹1,200",
-    status: "Filling",
-  },
-  {
-    role: "Kitchen helpers",
-    count: "4 of 4 booked",
-    date: "Sat, 15 Aug · 9:00 AM",
-    area: "Powai",
-    wage: "₹950",
-    status: "Confirmed",
-  },
-  {
-    role: "Dishwashing crew",
-    count: "0 of 3 booked",
-    date: "Sun, 16 Aug · 7:00 PM",
-    area: "Lower Parel",
-    wage: "₹900",
-    status: "Draft",
-  },
+  { role: "Banquet servers", count: "6 of 8 booked", date: "Fri, 14 Aug · 5:00 PM", area: "Andheri East", wage: "₹1,200", status: "Filling" },
+  { role: "Kitchen helpers", count: "4 of 4 booked", date: "Sat, 15 Aug · 9:00 AM", area: "Powai", wage: "₹950", status: "Confirmed" },
+  { role: "Dishwashing crew", count: "0 of 3 booked", date: "Sun, 16 Aug · 7:00 PM", area: "Lower Parel", wage: "₹900", status: "Draft" },
 ];
 
 const applicants = [
@@ -63,7 +45,10 @@ const applicants = [
   { name: "Imran Shaikh", trade: "Steward · 1 yr", rating: "4.6", verified: false },
 ];
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 function HirePage() {
+  const { isLoggedIn, openLoginModal } = useAuth();
   const [loading, setLoading] = useState(true);
   const [picked, setPicked] = useState<string[]>(["Meals provided"]);
 
@@ -72,36 +57,78 @@ function HirePage() {
     return () => clearTimeout(t);
   }, []);
 
+  function handlePostShift(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isLoggedIn) {
+      openLoginModal({ type: "post-shift" });
+      return;
+    }
+    toast.success("Shift posted — verified workers nearby are being notified.");
+  }
+
+  function handleConfirmApplicant(name: string) {
+    if (!isLoggedIn) {
+      openLoginModal({ type: "post-shift" });
+      return;
+    }
+    toast.success(`${name} confirmed for this shift.`);
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-5 py-14 lg:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-primary">Employer dashboard</p>
-          <h1 className="mt-2 text-4xl sm:text-5xl">Saffron Caterers</h1>
+          <h1 className="mt-2 text-4xl sm:text-5xl">
+            {isLoggedIn ? "Saffron Caterers" : "Post a shift"}
+          </h1>
           <p className="mt-3 text-muted-foreground">
-            3 active shifts · 14 workers booked this week
+            {isLoggedIn
+              ? "3 active shifts · 14 workers booked this week"
+              : "Log in to manage your shifts and applicants."}
           </p>
         </div>
-        <VerifiedBadge label="Verified Business" tone="success" />
+        {isLoggedIn && <VerifiedBadge label="Verified Business" tone="success" />}
       </div>
 
+      {/* Gate banner for logged-out visitors */}
+      {!isLoggedIn && (
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-primary/30 bg-primary/8 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
+              <Lock className="size-5" />
+            </div>
+            <div>
+              <p className="font-semibold">Log in to post and manage shifts</p>
+              <p className="text-sm text-muted-foreground">
+                You can browse applicants below — sign up to start hiring.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => openLoginModal()}>
+              Log in
+            </Button>
+            <Button variant="hero" size="sm" onClick={() => openLoginModal({ type: "post-shift" })}>
+              Sign up free
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="mt-10 grid gap-6 lg:grid-cols-[1.05fr_1fr]">
-        {/* Post a job */}
+        {/* Post a shift form */}
         <form
           className="rounded-3xl border border-border bg-surface p-7 lg:p-9"
-          onSubmit={(e) => {
-            e.preventDefault();
-            toast.success("Shift posted — verified workers nearby are being notified.");
-          }}
+          onSubmit={handlePostShift}
         >
           <h2 className="text-2xl">Post a shift</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Six fields. Workers see it instantly. Prefer a guided flow?{" "}
-            <Link to="/post-job" className="story-link font-semibold text-primary">
+            <Link to="/post-job" className="font-semibold text-primary hover:underline">
               Use the 4-step wizard
             </Link>
           </p>
-
 
           <div className="mt-7 grid gap-5 sm:grid-cols-2">
             <div className="grid gap-2">
@@ -135,13 +162,9 @@ function HirePage() {
                   <button
                     key={f}
                     type="button"
-                    onClick={() =>
-                      setPicked((p) => (on ? p.filter((x) => x !== f) : [...p, f]))
-                    }
+                    onClick={() => setPicked((p) => (on ? p.filter((x) => x !== f) : [...p, f]))}
                     className={`rounded-lg border px-3.5 py-2 text-sm font-medium transition-all duration-200 hover:scale-[1.03] ${
-                      on
-                        ? "border-primary bg-primary/12 text-primary"
-                        : "border-border text-muted-foreground"
+                      on ? "border-primary bg-primary/12 text-primary" : "border-border text-muted-foreground"
                     }`}
                   >
                     {f}
@@ -152,11 +175,15 @@ function HirePage() {
           </fieldset>
 
           <Button type="submit" variant="hero" size="lg" className="mt-8 w-full">
-            <Plus /> Post shift
+            {isLoggedIn ? (
+              <><Plus /> Post shift</>
+            ) : (
+              <><Lock className="size-4" /> Log in to post</>
+            )}
           </Button>
         </form>
 
-        {/* Applicants */}
+        {/* Applicants — always visible, actions gated */}
         <div className="rounded-3xl border border-border bg-surface p-7 lg:p-9">
           <h2 className="text-2xl">Applicants</h2>
           <p className="mt-2 text-sm text-muted-foreground">Banquet servers · Fri, 14 Aug</p>
@@ -186,9 +213,13 @@ function HirePage() {
                     <div className="mt-4 flex gap-2">
                       <Button
                         size="sm"
-                        onClick={() => toast.success(`${a.name} confirmed for this shift.`)}
+                        onClick={() => handleConfirmApplicant(a.name)}
                       >
-                        <CheckCircle2 /> Confirm
+                        {isLoggedIn ? (
+                          <><CheckCircle2 className="size-3.5" /> Confirm</>
+                        ) : (
+                          <><Lock className="size-3.5" /> Confirm</>
+                        )}
                       </Button>
                       <Button size="sm" variant="outline">
                         View profile
@@ -200,58 +231,60 @@ function HirePage() {
         </div>
       </div>
 
-      {/* Job status bento */}
-      <section className="mt-14">
-        <h2 className="text-2xl">Your shifts</h2>
-        <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {loading
-            ? [0, 1, 2].map((i) => (
-                <div key={i} className="rounded-2xl border border-border bg-card p-6">
-                  <Skeleton className="h-5 w-2/3" />
-                  <Skeleton className="mt-4 h-3 w-1/2" />
-                  <Skeleton className="mt-2 h-3 w-2/5" />
-                  <Skeleton className="mt-6 h-8 w-24 rounded-lg" />
-                </div>
-              ))
-            : jobs.map((job) => (
-                <article
-                  key={job.role}
-                  className="rounded-2xl border border-border bg-card p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-lift"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-lg">{job.role}</h3>
-                    <span
-                      className={`rounded-lg border px-2.5 py-1 text-xs font-semibold ${
-                        job.status === "Confirmed"
-                          ? "border-success/40 bg-success/15 text-success"
-                          : job.status === "Filling"
-                            ? "border-primary/40 bg-primary/12 text-primary"
-                            : "border-border bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {job.status}
-                    </span>
+      {/* Shifts section — only shown when logged in */}
+      {isLoggedIn && (
+        <section className="mt-14">
+          <h2 className="text-2xl">Your shifts</h2>
+          <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {loading
+              ? [0, 1, 2].map((i) => (
+                  <div key={i} className="rounded-2xl border border-border bg-card p-6">
+                    <Skeleton className="h-5 w-2/3" />
+                    <Skeleton className="mt-4 h-3 w-1/2" />
+                    <Skeleton className="mt-2 h-3 w-2/5" />
+                    <Skeleton className="mt-6 h-8 w-24 rounded-lg" />
                   </div>
-                  <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="size-4" /> {job.count}
-                  </p>
-                  <p className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground">
-                    <CalendarDays className="size-4" /> {job.date}
-                  </p>
-                  <p className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="size-4" /> {job.area}
-                  </p>
-                  <p className="mt-5 flex items-center gap-2 font-display text-xl font-bold text-primary">
-                    <Wallet className="size-5" /> {job.wage}
-                    <span className="text-sm font-medium text-muted-foreground">/ worker</span>
-                  </p>
-                  <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-                    <Clock className="size-3.5" /> Posted 2 hours ago
-                  </p>
-                </article>
-              ))}
-        </div>
-      </section>
+                ))
+              : jobs.map((job) => (
+                  <article
+                    key={job.role}
+                    className="rounded-2xl border border-border bg-card p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-lift"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="text-lg">{job.role}</h3>
+                      <span
+                        className={`rounded-lg border px-2.5 py-1 text-xs font-semibold ${
+                          job.status === "Confirmed"
+                            ? "border-success/40 bg-success/15 text-success"
+                            : job.status === "Filling"
+                              ? "border-primary/40 bg-primary/12 text-primary"
+                              : "border-border bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {job.status}
+                      </span>
+                    </div>
+                    <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                      <Users className="size-4" /> {job.count}
+                    </p>
+                    <p className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground">
+                      <CalendarDays className="size-4" /> {job.date}
+                    </p>
+                    <p className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="size-4" /> {job.area}
+                    </p>
+                    <p className="mt-5 flex items-center gap-2 font-display text-xl font-bold text-primary">
+                      <Wallet className="size-5" /> {job.wage}
+                      <span className="text-sm font-medium text-muted-foreground">/ worker</span>
+                    </p>
+                    <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Clock className="size-3.5" /> Posted 2 hours ago
+                    </p>
+                  </article>
+                ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

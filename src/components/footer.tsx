@@ -45,11 +45,6 @@ export function Footer() {
                 Find work
               </Link>
             </li>
-            <li>
-              <Link to="/how-it-works" className="transition-colors hover:text-primary">
-                How it works
-              </Link>
-            </li>
           </ul>
         </div>
 

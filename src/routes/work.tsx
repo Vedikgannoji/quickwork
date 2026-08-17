@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clock,
   Filter,
+  Lock,
   MapPin,
   SearchX,
   Star,
@@ -12,21 +13,22 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VerifiedBadge } from "@/components/verified-badge";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/work")({
   head: () => ({
     meta: [
-      { title: "Browse Shifts — QuickWork Worker Dashboard" },
+      { title: "Browse Shifts — QuickWork" },
       {
         name: "description",
         content:
-          "Browse and filter verified catering and event shifts near you on QuickWork. Wage shown upfront, book any shift with one tap.",
+          "Browse and filter verified catering and event shifts near you on QuickWork. Wage shown upfront — no login needed to look around.",
       },
       { property: "og:title", content: "QuickWork — Browse Shifts Near You" },
       {
@@ -37,6 +39,8 @@ export const Route = createFileRoute("/work")({
   }),
   component: WorkPage,
 });
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type Job = {
   id: string;
@@ -52,6 +56,8 @@ type Job = {
   distance: string;
   perks: string[];
 };
+
+// ─── Mock data ────────────────────────────────────────────────────────────────
 
 const listings: Job[] = [
   {
@@ -140,26 +146,50 @@ const listings: Job[] = [
   },
 ];
 
-const locationOptions = [
-  "All",
-  "Andheri East",
-  "Powai",
-  "Bandra Kurla",
-  "Lower Parel",
-  "Andheri West",
-  "Bandra West",
-];
+const locationOptions = ["All", "Andheri East", "Powai", "Bandra Kurla", "Lower Parel", "Andheri West", "Bandra West"];
 const categoryOptions = ["All", "Banquet", "Kitchen", "Steward", "Bartender"];
 const dateOptions = ["Any", "Today", "This week"];
 const wageOptions = ["Any", "₹900+", "₹1,000+", "₹1,200+"];
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 function WorkPage() {
+  const { isLoggedIn, openLoginModal, pendingAction, clearPendingAction } = useAuth();
+
   const [loading, setLoading] = useState(true);
   const [booked, setBooked] = useState<string[]>([]);
   const [location, setLocation] = useState("All");
   const [category, setCategory] = useState("All");
   const [date, setDate] = useState("Any");
   const [wage, setWage] = useState("Any");
+
+  // Resume pending booking once the user logs in
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (
+      isLoggedIn &&
+      pendingAction?.type === "book-shift" &&
+      pendingAction.payload &&
+      !resumedRef.current
+    ) {
+      resumedRef.current = true;
+      const jobId = pendingAction.payload as string;
+      clearPendingAction();
+      // Small delay so the modal close animation finishes first
+      setTimeout(() => {
+        const job = listings.find((j) => j.id === jobId);
+        if (job && !booked.includes(jobId)) {
+          setBooked((b) => [...b, jobId]);
+          toast.success(`Booked: ${job.role} · ${job.employer}`);
+        }
+      }, 200);
+    }
+  }, [isLoggedIn, pendingAction, clearPendingAction, booked]);
+
+  // Reset resume guard when logged out
+  useEffect(() => {
+    if (!isLoggedIn) resumedRef.current = false;
+  }, [isLoggedIn]);
 
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 900);
@@ -186,9 +216,18 @@ function WorkPage() {
     setWage("Any");
   };
 
-  const filtersActive =
-    location !== "All" || category !== "All" || date !== "Any" || wage !== "Any";
+  const filtersActive = location !== "All" || category !== "All" || date !== "Any" || wage !== "Any";
   const displayedCount = loading ? listings.length : filtered.length;
+
+  function handleBook(job: Job) {
+    if (!isLoggedIn) {
+      // Gate: open login modal and store the pending action with job id
+      openLoginModal({ type: "book-shift", payload: job.id });
+      return;
+    }
+    setBooked((b) => [...b, job.id]);
+    toast.success(`Booked: ${job.role} · ${job.employer}`);
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-5 py-14 lg:px-8">
@@ -207,48 +246,16 @@ function WorkPage() {
               <h2 className="text-sm font-semibold">Filter shifts</h2>
             </div>
             <div className="mt-4 space-y-4">
-              <FilterRow
-                label="Location"
-                options={locationOptions}
-                value={location}
-                onChange={setLocation}
-                disabled={loading}
-              />
-              <FilterRow
-                label="Category"
-                options={categoryOptions}
-                value={category}
-                onChange={setCategory}
-                disabled={loading}
-              />
-              <FilterRow
-                label="Date"
-                options={dateOptions}
-                value={date}
-                onChange={setDate}
-                disabled={loading}
-              />
-              <FilterRow
-                label="Wage"
-                options={wageOptions}
-                value={wage}
-                onChange={setWage}
-                disabled={loading}
-              />
+              <FilterRow label="Location" options={locationOptions} value={location} onChange={setLocation} disabled={loading} />
+              <FilterRow label="Category" options={categoryOptions} value={category} onChange={setCategory} disabled={loading} />
+              <FilterRow label="Date" options={dateOptions} value={date} onChange={setDate} disabled={loading} />
+              <FilterRow label="Wage" options={wageOptions} value={wage} onChange={setWage} disabled={loading} />
             </div>
             <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
               <p className="text-sm text-muted-foreground">
-                {loading
-                  ? "Loading shifts..."
-                  : `${filtered.length} shift${filtered.length === 1 ? "" : "s"} match`}
+                {loading ? "Loading shifts…" : `${filtered.length} shift${filtered.length === 1 ? "" : "s"} match`}
               </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                disabled={!filtersActive || loading}
-                className={!filtersActive ? "invisible" : ""}
-              >
+              <Button variant="ghost" size="sm" onClick={clearFilters} disabled={!filtersActive || loading} className={!filtersActive ? "invisible" : ""}>
                 <X className="size-4" /> Clear all
               </Button>
             </div>
@@ -300,33 +307,29 @@ function WorkPage() {
 
                     <div className="mt-4 flex flex-wrap gap-2">
                       {job.perks.map((p) => (
-                        <span
-                          key={p}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground"
-                        >
+                        <span key={p} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground">
                           <Utensils className="size-3" /> {p}
                         </span>
                       ))}
                     </div>
 
+                    {/* Book button — visible to all; gated on click if logged out */}
                     <Button
                       variant={isBooked ? "secondary" : "hero"}
                       size="lg"
                       className="mt-6 w-full"
                       disabled={isBooked}
-                      onClick={() => {
-                        setBooked((b) => [...b, job.id]);
-                        toast.success(`Booked: ${job.role} · ${job.employer}`);
-                      }}
+                      onClick={() => handleBook(job)}
                     >
                       {isBooked ? (
-                        <>
-                          <Check /> Booked
-                        </>
+                        <><Check /> Booked</>
+                      ) : !isLoggedIn ? (
+                        <><Lock className="size-4" /> Book this shift</>
                       ) : (
-                        "Book Now"
+                        "Book this shift"
                       )}
                     </Button>
+
                     {isBooked && (
                       <Button
                         variant="outline"
@@ -346,51 +349,91 @@ function WorkPage() {
           )}
         </div>
 
-        {/* Profile */}
+        {/* Sidebar — shows profile if logged in, sign-up nudge if not */}
         <aside className="h-fit rounded-3xl border border-border bg-surface p-7 lg:sticky lg:top-24">
-          <div className="flex size-16 items-center justify-center rounded-2xl bg-[image:linear-gradient(135deg,var(--brand),var(--brand-deep))] font-display text-2xl font-bold text-primary-foreground shadow-brand">
-            RM
-          </div>
-          <h2 className="mt-5 text-xl">Rahul Mehta</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Banquet server · 3 years</p>
-          <div className="mt-4">
-            <VerifiedBadge />
-          </div>
-
-          <dl className="mt-7 space-y-4 text-sm">
-            <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">Shifts completed</dt>
-              <dd className="font-semibold">128</dd>
-            </div>
-            <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">Punctuality</dt>
-              <dd className="font-semibold text-success">98%</dd>
-            </div>
-            <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">Rating</dt>
-              <dd className="flex items-center gap-1.5 font-semibold">
-                <Star className="size-4 fill-gold text-gold" /> 4.9
-              </dd>
-            </div>
-          </dl>
-
-          <div className="mt-7 rounded-2xl border border-gold/35 bg-gold/10 p-4">
-            <p className="flex items-center gap-2 text-sm font-semibold">
-              <Clock className="size-4 text-gold" /> Renew badge in 42 days
-            </p>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Keep punctuality above 90% to auto-renew.
-            </p>
-          </div>
-
-          <Button variant="outline" size="lg" className="mt-6 w-full" asChild>
-            <Link to="/profile">Edit profile</Link>
-          </Button>
+          {isLoggedIn ? (
+            <>
+              <div className="flex size-16 items-center justify-center rounded-2xl bg-[image:linear-gradient(135deg,var(--brand),var(--brand-deep))] font-display text-2xl font-bold text-primary-foreground shadow-brand">
+                RM
+              </div>
+              <h2 className="mt-5 text-xl">Rahul Mehta</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Banquet server · 3 years</p>
+              <div className="mt-4">
+                <VerifiedBadge />
+              </div>
+              <dl className="mt-7 space-y-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted-foreground">Shifts completed</dt>
+                  <dd className="font-semibold">128</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted-foreground">Punctuality</dt>
+                  <dd className="font-semibold text-success">98%</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted-foreground">Rating</dt>
+                  <dd className="flex items-center gap-1.5 font-semibold">
+                    <Star className="size-4 fill-gold text-gold" /> 4.9
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-7 rounded-2xl border border-gold/35 bg-gold/10 p-4">
+                <p className="flex items-center gap-2 text-sm font-semibold">
+                  <Clock className="size-4 text-gold" /> Renew badge in 42 days
+                </p>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Keep punctuality above 90% to auto-renew.
+                </p>
+              </div>
+              <Button variant="outline" size="lg" className="mt-6 w-full" asChild>
+                <Link to="/profile">Edit profile</Link>
+              </Button>
+            </>
+          ) : (
+            <GuestSidebarNudge />
+          )}
         </aside>
       </div>
     </div>
   );
 }
+
+// ─── Guest nudge sidebar ──────────────────────────────────────────────────────
+
+function GuestSidebarNudge() {
+  const { openLoginModal } = useAuth();
+  return (
+    <div className="flex flex-col items-center text-center">
+      <div className="relative flex size-16 items-center justify-center rounded-2xl bg-accent text-primary">
+        <Lock className="size-7" />
+        <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+          ?
+        </span>
+      </div>
+      <h3 className="mt-5 text-lg font-semibold">Ready to work?</h3>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Create a free account to book shifts, track earnings and build your verified profile.
+      </p>
+      <Button
+        variant="hero"
+        size="lg"
+        className="mt-6 w-full"
+        onClick={() => openLoginModal({ type: "book-shift" })}
+      >
+        Sign up — it's free
+      </Button>
+      <button
+        type="button"
+        onClick={() => openLoginModal()}
+        className="mt-3 text-sm text-primary hover:underline"
+      >
+        Already have an account? Log in
+      </button>
+    </div>
+  );
+}
+
+// ─── Filter row ───────────────────────────────────────────────────────────────
 
 function FilterRow({
   label,
@@ -431,6 +474,8 @@ function FilterRow({
     </div>
   );
 }
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
 
 function EmptyState({ onClear }: { onClear: () => void }) {
   return (

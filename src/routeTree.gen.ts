@@ -10,9 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BookingDemoRouteImport } from './routes/booking-demo'
 import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as CompleteProfileRouteImport } from './routes/complete-profile'
 import { Route as HireRouteImport } from './routes/hire'
-import { Route as HowItWorksRouteImport } from './routes/how-it-works'
 import { Route as PostJobRouteImport } from './routes/post-job'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as WorkRouteImport } from './routes/work'
@@ -22,19 +23,24 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BookingDemoRoute = BookingDemoRouteImport.update({
+  id: '/booking-demo',
+  path: '/booking-demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CheckoutRoute = CheckoutRouteImport.update({
   id: '/checkout',
   path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CompleteProfileRoute = CompleteProfileRouteImport.update({
+  id: '/complete-profile',
+  path: '/complete-profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HireRoute = HireRouteImport.update({
   id: '/hire',
   path: '/hire',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HowItWorksRoute = HowItWorksRouteImport.update({
-  id: '/how-it-works',
-  path: '/how-it-works',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PostJobRoute = PostJobRouteImport.update({
@@ -55,18 +61,20 @@ const WorkRoute = WorkRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/booking-demo': typeof BookingDemoRoute
   '/checkout': typeof CheckoutRoute
+  '/complete-profile': typeof CompleteProfileRoute
   '/hire': typeof HireRoute
-  '/how-it-works': typeof HowItWorksRoute
   '/post-job': typeof PostJobRoute
   '/profile': typeof ProfileRoute
   '/work': typeof WorkRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/booking-demo': typeof BookingDemoRoute
   '/checkout': typeof CheckoutRoute
+  '/complete-profile': typeof CompleteProfileRoute
   '/hire': typeof HireRoute
-  '/how-it-works': typeof HowItWorksRoute
   '/post-job': typeof PostJobRoute
   '/profile': typeof ProfileRoute
   '/work': typeof WorkRoute
@@ -74,9 +82,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/booking-demo': typeof BookingDemoRoute
   '/checkout': typeof CheckoutRoute
+  '/complete-profile': typeof CompleteProfileRoute
   '/hire': typeof HireRoute
-  '/how-it-works': typeof HowItWorksRoute
   '/post-job': typeof PostJobRoute
   '/profile': typeof ProfileRoute
   '/work': typeof WorkRoute
@@ -85,27 +94,30 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/booking-demo'
     | '/checkout'
+    | '/complete-profile'
     | '/hire'
-    | '/how-it-works'
     | '/post-job'
     | '/profile'
     | '/work'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/booking-demo'
     | '/checkout'
+    | '/complete-profile'
     | '/hire'
-    | '/how-it-works'
     | '/post-job'
     | '/profile'
     | '/work'
   id:
     | '__root__'
     | '/'
+    | '/booking-demo'
     | '/checkout'
+    | '/complete-profile'
     | '/hire'
-    | '/how-it-works'
     | '/post-job'
     | '/profile'
     | '/work'
@@ -113,9 +125,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BookingDemoRoute: typeof BookingDemoRoute
   CheckoutRoute: typeof CheckoutRoute
+  CompleteProfileRoute: typeof CompleteProfileRoute
   HireRoute: typeof HireRoute
-  HowItWorksRoute: typeof HowItWorksRoute
   PostJobRoute: typeof PostJobRoute
   ProfileRoute: typeof ProfileRoute
   WorkRoute: typeof WorkRoute
@@ -130,6 +143,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/booking-demo': {
+      id: '/booking-demo'
+      path: '/booking-demo'
+      fullPath: '/booking-demo'
+      preLoaderRoute: typeof BookingDemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/checkout': {
       id: '/checkout'
       path: '/checkout'
@@ -137,18 +157,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/complete-profile': {
+      id: '/complete-profile'
+      path: '/complete-profile'
+      fullPath: '/complete-profile'
+      preLoaderRoute: typeof CompleteProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/hire': {
       id: '/hire'
       path: '/hire'
       fullPath: '/hire'
       preLoaderRoute: typeof HireRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/how-it-works': {
-      id: '/how-it-works'
-      path: '/how-it-works'
-      fullPath: '/how-it-works'
-      preLoaderRoute: typeof HowItWorksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/post-job': {
@@ -177,9 +197,10 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BookingDemoRoute: BookingDemoRoute,
   CheckoutRoute: CheckoutRoute,
+  CompleteProfileRoute: CompleteProfileRoute,
   HireRoute: HireRoute,
-  HowItWorksRoute: HowItWorksRoute,
   PostJobRoute: PostJobRoute,
   ProfileRoute: ProfileRoute,
   WorkRoute: WorkRoute,
