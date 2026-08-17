@@ -245,3 +245,15 @@
     transform: translateX(0);
   }
 }
+
+/* Seat grid: subtle available-slot pulse */
+@keyframes seat-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 transparent;
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 18%, transparent);
+    opacity: 0.85;
+  }
+}
