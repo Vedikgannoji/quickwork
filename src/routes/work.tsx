@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   CalendarDays,
   Check,
+  CheckCircle2,
   Clock,
   Filter,
   MapPin,
@@ -326,6 +327,18 @@ function WorkPage() {
                         "Book Now"
                       )}
                     </Button>
+                    {isBooked && (
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="mt-2 w-full border-success/40 text-success hover:bg-success/10 hover:text-success"
+                        asChild
+                      >
+                        <Link to="/checkout">
+                          <CheckCircle2 className="size-4" /> Check out &amp; get paid
+                        </Link>
+                      </Button>
+                    )}
                   </article>
                 );
               })}
