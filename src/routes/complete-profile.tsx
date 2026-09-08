@@ -1,27 +1,17 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import {
-  Briefcase,
-  Camera,
-  Check,
-  Loader2,
-  MapPin,
-  User,
-  Wrench,
-  Zap,
-} from "lucide-react";
+import { Camera, Loader2, MapPin, User, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/complete-profile")({
   head: () => ({
     meta: [
-      { title: "Complete Your Profile — QuickWork" },
+      { title: "Set Up Your Profile — QuickWork" },
       {
         name: "description",
         content: "Tell us a bit about yourself to get started on QuickWork.",
@@ -31,27 +21,6 @@ export const Route = createFileRoute("/complete-profile")({
   component: CompleteProfilePage,
 });
 
-const workerSkills = [
-  "Banquet server",
-  "Kitchen helper",
-  "Event steward",
-  "Bartender",
-  "Dishwashing",
-  "Catering assistant",
-  "Warehouse loader",
-  "Delivery associate",
-];
-
-const employerTypes = [
-  "Catering business",
-  "Event management",
-  "Restaurant",
-  "Hotel",
-  "Warehouse",
-  "Retail store",
-  "Other",
-];
-
 function CompleteProfilePage() {
   const { user, completeProfile, clearPendingAction } = useAuth();
   const navigate = useNavigate();
@@ -59,47 +28,33 @@ function CompleteProfilePage() {
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [skill, setSkill] = useState("");
-  const [experience, setExperience] = useState("");
-  const [businessType, setBusinessType] = useState("");
-  const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!user) {
       navigate({ to: "/" });
     } else if (user.profileComplete) {
-      navigate({ to: user.role === "employer" ? "/hire" : "/work" });
+      navigate({ to: "/dashboard" });
     }
   }, [user, navigate]);
 
   if (!user || user.profileComplete) return null;
 
-  const isWorker = user.role === "worker";
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name || !location) {
-      toast.error("Please fill in all required fields.");
-      return;
-    }
-    if (isWorker && (!skill || !experience)) {
-      toast.error("Please select your skill and experience.");
-      return;
-    }
-    if (!isWorker && !businessType) {
-      toast.error("Please select your business type.");
+    if (!name.trim() || !location.trim()) {
+      toast.error("Please fill in your name and location.");
       return;
     }
 
     setLoading(true);
     try {
-      await completeProfile({ name });
-      toast.success("Profile complete! Redirecting…");
+      await completeProfile({ name: name.trim(), location: location.trim() });
+      toast.success("Profile set up! Welcome to QuickWork.");
       clearPendingAction();
       setTimeout(() => {
-        navigate({ to: isWorker ? "/work" : "/hire" });
-      }, 800);
+        navigate({ to: "/dashboard" });
+      }, 600);
     } catch {
       toast.error("Failed to save profile. Please try again.");
     } finally {
@@ -117,7 +72,8 @@ function CompleteProfilePage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-2xl flex-col px-5 py-14 lg:px-8">
+    <div className="mx-auto flex min-h-screen max-w-lg flex-col px-5 py-14 lg:px-8">
+      {/* Logo */}
       <div className="flex items-center gap-2.5">
         <span className="flex size-10 items-center justify-center rounded-xl bg-[image:linear-gradient(135deg,var(--brand),var(--brand-deep))] shadow-brand">
           <Zap className="size-6 text-primary-foreground" />
@@ -125,22 +81,20 @@ function CompleteProfilePage() {
         <span className="font-display text-xl font-bold tracking-tight">QuickWork</span>
       </div>
 
+      {/* Heading */}
       <div className="mt-10">
         <h1 className="font-display text-4xl font-bold sm:text-5xl">
-          {isWorker ? "Set up your worker profile" : "Set up your business profile"}
+          Set up your profile
         </h1>
         <p className="mt-3 text-muted-foreground">
-          {isWorker
-            ? "Tell us about your skills and experience so employers can find you."
-            : "Tell us about your business so workers can see your listings."}
+          Just a few quick details. You can post jobs and find work from the same account.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-10 space-y-6">
+        {/* Photo */}
         <div className="grid gap-2">
-          <Label htmlFor="photo">
-            {isWorker ? "Profile photo" : "Business logo"} (optional)
-          </Label>
+          <Label htmlFor="photo">Profile photo <span className="text-muted-foreground">(optional)</span></Label>
           <div className="flex items-center gap-4">
             <div className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-muted">
               {photoPreview ? (
@@ -149,7 +103,7 @@ function CompleteProfilePage() {
                 <Camera className="size-7 text-muted-foreground" />
               )}
             </div>
-            <div className="flex-1">
+            <div>
               <input
                 id="photo"
                 type="file"
@@ -166,135 +120,77 @@ function CompleteProfilePage() {
                 <Camera className="size-4" />
                 Upload photo
               </Button>
+              <p className="mt-1.5 text-xs text-muted-foreground">PNG, JPG up to 5 MB</p>
             </div>
           </div>
         </div>
 
+        {/* Name */}
         <div className="grid gap-2">
-          <Label htmlFor="name">
-            {isWorker ? "Full name" : "Business name"} <span className="text-destructive">*</span>
-          </Label>
+          <Label htmlFor="name">Full name <span className="text-destructive">*</span></Label>
           <div className="relative">
-            <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <User className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="name"
-              placeholder={isWorker ? "e.g. Rahul Mehta" : "e.g. Saffron Caterers"}
-              className="pl-9"
+              placeholder="e.g. Priya Sharma"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              className="pl-10"
+              autoFocus
               required
             />
           </div>
         </div>
 
+        {/* Location */}
         <div className="grid gap-2">
-          <Label htmlFor="location">
-            Location <span className="text-destructive">*</span>
-          </Label>
+          <Label htmlFor="location">Location <span className="text-destructive">*</span></Label>
           <div className="relative">
-            <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <MapPin className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="location"
               placeholder="e.g. Andheri East, Mumbai"
-              className="pl-9"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
+              className="pl-10"
               required
             />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Used to show nearby jobs and match your posts with local workers.
+          </p>
         </div>
 
-        {isWorker && (
-          <>
-            <div className="grid gap-2">
-              <Label htmlFor="skill">
-                Skill category <span className="text-destructive">*</span>
-              </Label>
-              <div className="relative">
-                <Wrench className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <select
-                  id="skill"
-                  className="h-11 w-full appearance-none rounded-xl border border-border bg-background pl-9 pr-9 text-sm"
-                  value={skill}
-                  onChange={(e) => setSkill(e.target.value)}
-                  required
-                >
-                  <option value="">Select a skill</option>
-                  {workerSkills.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+        {/* What you can do — reassurance block */}
+        <div className="rounded-2xl border border-border bg-surface p-5">
+          <p className="text-sm font-semibold">With one account you can:</p>
+          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+            <li className="flex items-center gap-2.5">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">✓</span>
+              Browse and apply for shifts near you
+            </li>
+            <li className="flex items-center gap-2.5">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">✓</span>
+              Post a job and hire verified workers
+            </li>
+            <li className="flex items-center gap-2.5">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">✓</span>
+              Switch between hiring and working any time
+            </li>
+          </ul>
+        </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="experience">
-                Experience <span className="text-destructive">*</span>
-              </Label>
-              <select
-                id="experience"
-                className="h-11 w-full appearance-none rounded-xl border border-border bg-background px-3 text-sm"
-                value={experience}
-                onChange={(e) => setExperience(e.target.value)}
-                required
-              >
-                <option value="">Select experience level</option>
-                <option value="0-1">Less than 1 year</option>
-                <option value="1-3">1-3 years</option>
-                <option value="3-5">3-5 years</option>
-                <option value="5+">5+ years</option>
-              </select>
-            </div>
-          </>
-        )}
-
-        {!isWorker && (
-          <>
-            <div className="grid gap-2">
-              <Label htmlFor="businessType">
-                Business type <span className="text-destructive">*</span>
-              </Label>
-              <div className="relative">
-                <Briefcase className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <select
-                  id="businessType"
-                  className="h-11 w-full appearance-none rounded-xl border border-border bg-background pl-9 pr-9 text-sm"
-                  value={businessType}
-                  onChange={(e) => setBusinessType(e.target.value)}
-                  required
-                >
-                  <option value="">Select business type</option>
-                  {employerTypes.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="description">About your business (optional)</Label>
-              <Textarea
-                id="description"
-                rows={4}
-                placeholder="Brief description…"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-          </>
-        )}
-
-        <Button type="submit" variant="hero" size="lg" className="w-full" disabled={loading}>
+        <Button
+          type="submit"
+          variant="hero"
+          size="lg"
+          className="w-full"
+          disabled={loading || !name.trim() || !location.trim()}
+        >
           {loading ? (
-            <>
-              <Loader2 className="animate-spin" />
-              Saving…
-            </>
+            <Loader2 className="size-4 animate-spin" />
           ) : (
-            <>
-              <Check />
-              Complete profile
-            </>
+            "Get started →"
           )}
         </Button>
       </form>

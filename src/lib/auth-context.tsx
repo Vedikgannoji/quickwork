@@ -1,23 +1,21 @@
 /**
  * Auth context with phone+OTP, Google, email+OTP support.
- * Tracks user onboarding state: if profileComplete is false after login,
- * the app should redirect to /complete-profile.
+ * No upfront role choice — every user can both post jobs and find work.
+ * After login, profileComplete drives whether /complete-profile is shown.
  */
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-export type UserRole = "worker" | "employer";
 
 export interface AuthUser {
   id: string;
   name: string | null;
   phone: string | null;
   email: string | null;
-  role: UserRole;
   profileComplete: boolean;
   /** Avatar URL or initials */
   avatar?: string;
+  location?: string;
 }
 
 export interface PendingAction {
@@ -34,11 +32,11 @@ interface AuthContextValue {
   pendingAction: PendingAction | null;
   clearPendingAction: () => void;
   /** Phone+OTP login. Returns user object on success. */
-  loginWithPhone: (phone: string, otp: string, role: UserRole) => Promise<AuthUser>;
+  loginWithPhone: (phone: string, otp: string) => Promise<AuthUser>;
   /** Google OAuth login. Returns user object on success. */
-  loginWithGoogle: (role: UserRole) => Promise<AuthUser>;
+  loginWithGoogle: () => Promise<AuthUser>;
   /** Email+OTP login. Returns user object on success. */
-  loginWithEmail: (email: string, otp: string, role: UserRole) => Promise<AuthUser>;
+  loginWithEmail: (email: string, otp: string) => Promise<AuthUser>;
   /** Send OTP to phone. Returns true on success. */
   sendPhoneOTP: (phone: string) => Promise<boolean>;
   /** Send OTP to email. Returns true on success. */
@@ -73,18 +71,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ── Mock phone+OTP login ──────────────────────────────────────────────────
-  const loginWithPhone = useCallback(async (phone: string, _otp: string, role: UserRole): Promise<AuthUser> => {
+  const loginWithPhone = useCallback(async (phone: string, _otp: string): Promise<AuthUser> => {
     await new Promise((r) => setTimeout(r, 800));
-    // Check if user exists (mock: phone ending in "999" = returning user)
+    // Mock: phone ending in "999" = returning user with a complete profile
     const isReturning = phone.endsWith("999");
     const mockUser: AuthUser = {
       id: `u_phone_${Date.now()}`,
-      name: isReturning ? (role === "employer" ? "Saffron Caterers" : "Rahul Mehta") : null,
+      name: isReturning ? "Rahul Mehta" : null,
       phone,
       email: null,
-      role,
       profileComplete: isReturning,
-      avatar: isReturning ? (role === "employer" ? "SC" : "RM") : undefined,
+      avatar: isReturning ? "RM" : undefined,
+      location: isReturning ? "Andheri East, Mumbai" : undefined,
     };
     setUser(mockUser);
     setLoginModalOpen(false);
@@ -92,15 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ── Mock Google OAuth ─────────────────────────────────────────────────────
-  const loginWithGoogle = useCallback(async (role: UserRole): Promise<AuthUser> => {
+  const loginWithGoogle = useCallback(async (): Promise<AuthUser> => {
     await new Promise((r) => setTimeout(r, 1000));
     // Mock: always treat Google as new user needing profile completion
     const mockUser: AuthUser = {
       id: `u_google_${Date.now()}`,
-      name: null, // will be filled in profile completion
+      name: null,
       phone: null,
       email: "user@gmail.com",
-      role,
       profileComplete: false,
     };
     setUser(mockUser);
@@ -109,18 +106,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ── Mock email+OTP login ──────────────────────────────────────────────────
-  const loginWithEmail = useCallback(async (email: string, _otp: string, role: UserRole): Promise<AuthUser> => {
+  const loginWithEmail = useCallback(async (email: string, _otp: string): Promise<AuthUser> => {
     await new Promise((r) => setTimeout(r, 800));
-    // Mock: email ending in ".old" = returning user
+    // Mock: email ending in ".old" = returning user with a complete profile
     const isReturning = email.endsWith(".old");
     const mockUser: AuthUser = {
       id: `u_email_${Date.now()}`,
-      name: isReturning ? (role === "employer" ? "Saffron Caterers" : "Rahul Mehta") : null,
+      name: isReturning ? "Rahul Mehta" : null,
       phone: null,
       email,
-      role,
       profileComplete: isReturning,
-      avatar: isReturning ? (role === "employer" ? "SC" : "RM") : undefined,
+      avatar: isReturning ? "RM" : undefined,
+      location: isReturning ? "Andheri East, Mumbai" : undefined,
     };
     setUser(mockUser);
     setLoginModalOpen(false);

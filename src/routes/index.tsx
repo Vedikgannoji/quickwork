@@ -84,10 +84,10 @@ function Index() {
             <Sparkles className="size-3.5" /> Now live across 6 categories
           </span>
           <h1 className="mt-6 max-w-3xl text-5xl leading-[1.05] font-bold text-white sm:text-6xl lg:text-7xl">
-            Find skilled workers for your next shift, <span className="text-brand-gradient">right away</span>.
+            Find verified workers or pick up a shift, <span className="text-brand-gradient">right now</span>.
           </h1>
           <p className="mt-6 max-w-xl text-lg text-white/75">
-            Search by category, location and shift timing. Post a job in minutes or find verified work near you.
+            One account. Post a job in minutes or find verified work near you — no role-switching needed.
           </p>
 
           {/* Search bar */}
@@ -110,14 +110,14 @@ function Index() {
                   className="h-14 w-full rounded-xl border-0 bg-white/15 pl-12 pr-4 text-white placeholder:text-white/60 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-white/30"
                 />
               </div>
-              <Button variant="hero" size="xl" className="h-14 sm:w-40" asChild>
-                <Link to="/work">Find Workers</Link>
+              <Button variant="hero" size="xl" className="h-14 sm:w-44" asChild>
+                <Link to="/work">Browse Shifts</Link>
               </Button>
             </div>
             <p className="mt-4 text-center text-sm text-white/60">
-              Looking for work instead?{" "}
-              <Link to="/work" className="font-semibold text-white hover:underline">
-                Browse open shifts
+              Want to hire instead?{" "}
+              <Link to="/hire" className="font-semibold text-white hover:underline">
+                Post a shift
               </Link>
             </p>
           </div>
@@ -126,7 +126,7 @@ function Index() {
           <div className="mt-16 grid max-w-3xl grid-cols-2 gap-4 rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-xl sm:grid-cols-4">
             {[
               ["12 min", "Average fill time"],
-              ["4.9", "Employer rating"],
+              ["4.9", "Average rating"],
               ["98%", "Punctuality rate"],
               ["18,400+", "Verified workers"],
             ].map(([value, label]) => (
@@ -211,9 +211,9 @@ function Index() {
       {/* ── Category grid ── */}
       <section className="mx-auto max-w-7xl px-5 py-14 lg:px-8">
         <div className="text-center">
-          <h2 className="text-3xl sm:text-4xl">Find workers by category</h2>
+          <h2 className="text-3xl sm:text-4xl">Browse shifts by category</h2>
           <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
-            Six categories, one platform. Pick the skill you need today.
+            Six categories, one platform. Find work or hire for any of them today.
           </p>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -245,7 +245,7 @@ function Index() {
           <div>
             <VerifiedBadge label="Skill Verification Program" />
             <h2 className="mt-5 text-3xl sm:text-4xl">
-              Every worker is verified before they ever reach your floor.
+              Every worker is verified before they ever take a shift.
             </h2>
             <p className="mt-4 text-muted-foreground">
               ID and address checks, a practical skill assessment per trade, and shift-by-shift

@@ -72,7 +72,7 @@ function UserMenu() {
         onClick={() => setOpen((o) => !o)}
         className="flex size-9 items-center justify-center rounded-lg bg-[image:linear-gradient(135deg,var(--brand),var(--brand-deep))] font-display text-sm font-bold text-primary-foreground shadow-brand transition-all duration-200 hover:scale-[1.03] hover:shadow-brand-lg"
       >
-        {user.avatarInitials}
+        {user.avatar ?? "U"}
       </button>
 
       {/* Dropdown */}
@@ -80,10 +80,7 @@ function UserMenu() {
         <div className="absolute right-0 top-full z-50 mt-2 w-52 animate-rise rounded-2xl border border-border bg-card p-2 shadow-lift">
           <div className="px-3 py-2">
             <p className="font-semibold text-sm truncate">{user.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-            <span className="mt-1.5 inline-flex items-center rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary capitalize">
-              {user.role}
-            </span>
+            <p className="text-xs text-muted-foreground truncate">{user.email ?? user.phone}</p>
           </div>
           <div className="my-1.5 h-px bg-border" />
           <Link
@@ -94,7 +91,7 @@ function UserMenu() {
             <User className="size-4" /> My profile
           </Link>
           <Link
-            to={user.role === "employer" ? "/hire" : "/work"}
+            to="/dashboard"
             onClick={() => setOpen(false)}
             className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
@@ -175,20 +172,37 @@ export function Navbar() {
                 inactiveProps={{ className: "text-muted-foreground" }}
                 className="rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-200 hover:text-primary"
               >
-                Browse Jobs
+                Find Work
               </Link>
             </li>
             <li>
               <Link
                 to="/hire"
-                onClick={handlePostJob}
                 activeProps={{ className: "bg-accent text-primary" }}
                 inactiveProps={{ className: "text-muted-foreground" }}
                 className="rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-200 hover:text-primary"
+                onClick={(e) => {
+                  if (!isLoggedIn) {
+                    e.preventDefault();
+                    openLoginModal({ type: "post-shift" });
+                  }
+                }}
               >
                 Post a Job
               </Link>
             </li>
+            {isLoggedIn && (
+              <li>
+                <Link
+                  to="/dashboard"
+                  activeProps={{ className: "bg-accent text-primary" }}
+                  inactiveProps={{ className: "text-muted-foreground" }}
+                  className="rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-200 hover:text-primary"
+                >
+                  Dashboard
+                </Link>
+              </li>
+            )}
           </ul>
 
           {/* ── Right cluster ── */}
@@ -247,7 +261,7 @@ export function Navbar() {
                   onClick={() => setMobileOpen(false)}
                   className="block rounded-lg px-3 py-3 text-sm font-medium"
                 >
-                  Browse Jobs
+                  Find Work
                 </Link>
               </li>
               <li>
@@ -255,8 +269,11 @@ export function Navbar() {
                   type="button"
                   onClick={(e) => {
                     setMobileOpen(false);
-                    handlePostJob(e);
-                    if (isLoggedIn) router.navigate({ to: "/hire" });
+                    if (!isLoggedIn) {
+                      openLoginModal({ type: "post-shift" });
+                    } else {
+                      router.navigate({ to: "/hire" });
+                    }
                   }}
                   className="block w-full rounded-lg px-3 py-3 text-left text-sm font-medium"
                 >
@@ -265,6 +282,15 @@ export function Navbar() {
               </li>
               {isLoggedIn && (
                 <>
+                  <li>
+                    <Link
+                      to="/dashboard"
+                      onClick={() => setMobileOpen(false)}
+                      className="block rounded-lg px-3 py-3 text-sm font-medium"
+                    >
+                      Dashboard
+                    </Link>
+                  </li>
                   <li>
                     <Link
                       to="/profile"

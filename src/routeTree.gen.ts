@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BookingDemoRouteImport } from './routes/booking-demo'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CompleteProfileRouteImport } from './routes/complete-profile'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as HireRouteImport } from './routes/hire'
 import { Route as PostJobRouteImport } from './routes/post-job'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -36,6 +37,11 @@ const CheckoutRoute = CheckoutRouteImport.update({
 const CompleteProfileRoute = CompleteProfileRouteImport.update({
   id: '/complete-profile',
   path: '/complete-profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HireRoute = HireRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/booking-demo': typeof BookingDemoRoute
   '/checkout': typeof CheckoutRoute
   '/complete-profile': typeof CompleteProfileRoute
+  '/dashboard': typeof DashboardRoute
   '/hire': typeof HireRoute
   '/post-job': typeof PostJobRoute
   '/profile': typeof ProfileRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/booking-demo': typeof BookingDemoRoute
   '/checkout': typeof CheckoutRoute
   '/complete-profile': typeof CompleteProfileRoute
+  '/dashboard': typeof DashboardRoute
   '/hire': typeof HireRoute
   '/post-job': typeof PostJobRoute
   '/profile': typeof ProfileRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/booking-demo': typeof BookingDemoRoute
   '/checkout': typeof CheckoutRoute
   '/complete-profile': typeof CompleteProfileRoute
+  '/dashboard': typeof DashboardRoute
   '/hire': typeof HireRoute
   '/post-job': typeof PostJobRoute
   '/profile': typeof ProfileRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/booking-demo'
     | '/checkout'
     | '/complete-profile'
+    | '/dashboard'
     | '/hire'
     | '/post-job'
     | '/profile'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/booking-demo'
     | '/checkout'
     | '/complete-profile'
+    | '/dashboard'
     | '/hire'
     | '/post-job'
     | '/profile'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/booking-demo'
     | '/checkout'
     | '/complete-profile'
+    | '/dashboard'
     | '/hire'
     | '/post-job'
     | '/profile'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   BookingDemoRoute: typeof BookingDemoRoute
   CheckoutRoute: typeof CheckoutRoute
   CompleteProfileRoute: typeof CompleteProfileRoute
+  DashboardRoute: typeof DashboardRoute
   HireRoute: typeof HireRoute
   PostJobRoute: typeof PostJobRoute
   ProfileRoute: typeof ProfileRoute
@@ -162,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/complete-profile'
       fullPath: '/complete-profile'
       preLoaderRoute: typeof CompleteProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/hire': {
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   BookingDemoRoute: BookingDemoRoute,
   CheckoutRoute: CheckoutRoute,
   CompleteProfileRoute: CompleteProfileRoute,
+  DashboardRoute: DashboardRoute,
   HireRoute: HireRoute,
   PostJobRoute: PostJobRoute,
   ProfileRoute: ProfileRoute,

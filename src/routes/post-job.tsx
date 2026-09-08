@@ -29,7 +29,7 @@ export const Route = createFileRoute("/post-job")({
       {
         name: "description",
         content:
-          "Guided 4-step shift posting for employers: job basics, location and crew size, wage and facilities, then review and publish to verified workers.",
+          "Guided 4-step shift posting: job basics, location and crew size, wage and facilities, then review and publish to verified workers near you.",
       },
       { property: "og:title", content: "Post a Shift in 4 Steps — QuickWork" },
       {
@@ -151,7 +151,7 @@ function PostJobPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-14 lg:px-8">
-      <p className="text-sm font-semibold text-primary">Employer</p>
+      <p className="text-sm font-semibold text-primary">Post a shift</p>
       <h1 className="mt-2 text-4xl sm:text-5xl">Post a shift</h1>
       <p className="mt-3 text-muted-foreground">
         Four quick steps. Verified workers get notified the moment you publish.

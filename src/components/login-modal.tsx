@@ -1,8 +1,8 @@
 /**
- * Login modal with phone+OTP, Google OAuth, and email+OTP.
- * After auth, checks user.profileComplete:
+ * Login modal — Phone+OTP, Google OAuth, Email+OTP.
+ * No upfront role choice. After auth, checks user.profileComplete:
  * - false → navigate to /complete-profile
- * - true → close modal and resume pendingAction
+ * - true  → close modal and resume pendingAction
  */
 import { Check, Loader2, Mail, Phone, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -11,7 +11,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth, type UserRole } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -19,30 +19,7 @@ import { cn } from "@/lib/utils";
 type AuthMethod = "phone" | "google" | "email";
 type Step = "method" | "otp";
 
-// ─── Role Toggle ──────────────────────────────────────────────────────────────
-
-function RoleToggle({ role, onChange }: { role: UserRole; onChange: (r: UserRole) => void }) {
-  return (
-    <div className="flex rounded-xl border border-border bg-background p-1" role="group">
-      {(["worker", "employer"] as UserRole[]).map((r) => (
-        <button
-          key={r}
-          type="button"
-          onClick={() => onChange(r)}
-          aria-pressed={role === r}
-          className={cn(
-            "flex-1 rounded-lg py-2 text-sm font-semibold transition-all duration-200",
-            role === r ? "bg-primary text-primary-foreground shadow-brand" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {r === "worker" ? "I'm a Worker" : "I'm an Employer"}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ─── Google Button ────────────────────────────────────────────────────────────
+// ─── Google Icon ──────────────────────────────────────────────────────────────
 
 function GoogleIcon() {
   return (
@@ -67,6 +44,58 @@ function GoogleIcon() {
   );
 }
 
+// ─── OTP Input ────────────────────────────────────────────────────────────────
+
+function OtpInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const refs = Array.from({ length: 6 }, () => useRef<HTMLInputElement>(null));
+
+  function handleChange(i: number, v: string) {
+    const digit = v.replace(/\D/g, "").slice(-1);
+    const next = value.split("");
+    next[i] = digit;
+    const updated = next.join("").padEnd(6, "").slice(0, 6);
+    onChange(updated);
+    if (digit && i < 5) refs[i + 1].current?.focus();
+  }
+
+  function handleKeyDown(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Backspace" && !value[i] && i > 0) {
+      refs[i - 1].current?.focus();
+    }
+  }
+
+  function handlePaste(e: React.ClipboardEvent) {
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pasted) {
+      onChange(pasted.padEnd(6, "").slice(0, 6));
+      refs[Math.min(pasted.length, 5)].current?.focus();
+      e.preventDefault();
+    }
+  }
+
+  return (
+    <div className="flex gap-2" onPaste={handlePaste}>
+      {Array.from({ length: 6 }, (_, i) => (
+        <input
+          key={i}
+          ref={refs[i]}
+          type="text"
+          inputMode="numeric"
+          maxLength={1}
+          value={value[i] ?? ""}
+          onChange={(e) => handleChange(i, e.target.value)}
+          onKeyDown={(e) => handleKeyDown(i, e)}
+          className={cn(
+            "h-12 w-full rounded-xl border border-border bg-background text-center text-lg font-semibold transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20",
+            value[i] && "border-primary bg-primary/5",
+          )}
+          aria-label={`OTP digit ${i + 1}`}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ─── Modal ────────────────────────────────────────────────────────────────────
 
 export function LoginModal() {
@@ -85,7 +114,6 @@ export function LoginModal() {
 
   const [step, setStep] = useState<Step>("method");
   const [method, setMethod] = useState<AuthMethod | null>(null);
-  const [role, setRole] = useState<UserRole>("worker");
 
   const [phoneInput, setPhoneInput] = useState("");
   const [emailInput, setEmailInput] = useState("");
@@ -125,10 +153,13 @@ export function LoginModal() {
     "book-shift": "Log in to book this shift",
     "post-shift": "Log in to post a shift",
     message: "Log in to send a message",
-    dashboard: "Log in to access your dashboard",
+    dashboard: "Log in to your account",
   };
 
-  const headline = pendingAction && pendingLabel[pendingAction.type] ? pendingLabel[pendingAction.type] : "Welcome to QuickWork";
+  const headline =
+    pendingAction && pendingLabel[pendingAction.type]
+      ? pendingLabel[pendingAction.type]
+      : "Welcome to QuickWork";
 
   // ── Send OTP ──────────────────────────────────────────────────────────────
   async function handleSendOTP() {
@@ -168,16 +199,14 @@ export function LoginModal() {
     try {
       let user;
       if (method === "phone") {
-        user = await loginWithPhone(phoneInput, otpInput, role);
+        user = await loginWithPhone(phoneInput, otpInput);
       } else if (method === "email") {
-        user = await loginWithEmail(emailInput, otpInput, role);
+        user = await loginWithEmail(emailInput, otpInput);
       }
       if (user) {
-        // Modal closes automatically inside loginWith* functions
         if (!user.profileComplete) {
           navigate({ to: "/complete-profile" });
         }
-        // else: modal closed, pendingAction will be consumed by the caller
       }
     } catch {
       setError("Invalid OTP. Please try again.");
@@ -191,7 +220,7 @@ export function LoginModal() {
     setError(null);
     setLoading(true);
     try {
-      const user = await loginWithGoogle(role);
+      const user = await loginWithGoogle();
       if (!user.profileComplete) {
         navigate({ to: "/complete-profile" });
       }
@@ -230,17 +259,15 @@ export function LoginModal() {
           {headline}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          {step === "method" ? "Choose how you'd like to continue." : "Enter the OTP we sent you."}
+          {step === "method"
+            ? "Post jobs or find work — one account does both."
+            : "Enter the code we sent you."}
         </p>
 
-        {/* Role toggle */}
-        <div className="mt-6">
-          <RoleToggle role={role} onChange={setRole} />
-        </div>
-
-        {/* Step: Method selection */}
+        {/* ── Step: Method selection ── */}
         {step === "method" && (
           <div className="mt-6 space-y-3">
+            {/* Phone */}
             <Button
               variant="outline"
               size="lg"
@@ -254,6 +281,7 @@ export function LoginModal() {
               Continue with Phone
             </Button>
 
+            {/* Google */}
             <Button
               variant="outline"
               size="lg"
@@ -269,6 +297,7 @@ export function LoginModal() {
               Continue with Google
             </Button>
 
+            {/* Email */}
             <Button
               variant="outline"
               size="lg"
@@ -281,129 +310,146 @@ export function LoginModal() {
               <Mail className="size-5 text-primary" />
               Continue with Email
             </Button>
+
+            <p className="pt-2 text-center text-xs text-muted-foreground">
+              By continuing you agree to our{" "}
+              <a href="#" className="underline underline-offset-2 hover:text-foreground">
+                Terms
+              </a>{" "}
+              &{" "}
+              <a href="#" className="underline underline-offset-2 hover:text-foreground">
+                Privacy Policy
+              </a>
+              .
+            </p>
           </div>
         )}
 
-        {/* Step: OTP entry */}
-        {step === "otp" && method && (
+        {/* ── Step: Phone input (before OTP sent) ── */}
+        {step === "otp" && method === "phone" && !otpSent && (
           <div className="mt-6 space-y-4">
-            {!otpSent ? (
-              <>
-                {/* Phone or Email input */}
-                <div className="grid gap-1.5">
-                  <Label htmlFor="auth-input">
-                    {method === "phone" ? "Phone number" : "Email address"}
-                  </Label>
-                  <div className="relative">
-                    {method === "phone" ? (
-                      <Phone className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    ) : (
-                      <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    )}
-                    <Input
-                      id="auth-input"
-                      type={method === "phone" ? "tel" : "email"}
-                      placeholder={method === "phone" ? "+91 98765 43210" : "you@example.com"}
-                      className="pl-9"
-                      value={method === "phone" ? phoneInput : emailInput}
-                      onChange={(e) => (method === "phone" ? setPhoneInput(e.target.value) : setEmailInput(e.target.value))}
-                    />
-                  </div>
-                </div>
-
-                <Button variant="hero" size="lg" className="w-full" onClick={handleSendOTP} disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="animate-spin" />
-                      Sending OTP…
-                    </>
-                  ) : (
-                    "Send OTP"
-                  )}
-                </Button>
-              </>
-            ) : (
-              <>
-                {/* OTP input */}
-                <div className="rounded-2xl border border-success/30 bg-success/10 px-4 py-3">
-                  <p className="flex items-center gap-2 text-sm font-semibold text-success">
-                    <Check className="size-4" />
-                    OTP sent to {method === "phone" ? phoneInput : emailInput}
-                  </p>
-                </div>
-
-                <div className="grid gap-1.5">
-                  <Label htmlFor="otp-input">Enter 6-digit OTP</Label>
-                  <Input
-                    id="otp-input"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="123456"
-                    className="text-center text-lg tracking-widest"
-                    value={otpInput}
-                    onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ""))}
-                  />
-                </div>
-
-                <Button variant="hero" size="lg" className="w-full" onClick={handleVerifyOTP} disabled={loading || otpInput.length !== 6}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="animate-spin" />
-                      Verifying…
-                    </>
-                  ) : (
-                    "Verify & Continue"
-                  )}
-                </Button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOtpSent(false);
-                    setOtpInput("");
-                    setError(null);
-                  }}
-                  className="w-full text-center text-sm text-primary hover:underline"
-                >
-                  Didn't receive OTP? Resend
-                </button>
-              </>
-            )}
-
-            {/* Back button */}
+            <div className="grid gap-2">
+              <Label htmlFor="phone">Mobile number</Label>
+              <div className="flex gap-2">
+                <span className="flex h-11 items-center rounded-xl border border-border bg-muted px-3 text-sm font-medium text-muted-foreground">
+                  +91
+                </span>
+                <Input
+                  id="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="98765 43210"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  className="h-11"
+                  autoFocus
+                />
+              </div>
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button
+              variant="hero"
+              size="lg"
+              className="w-full"
+              onClick={handleSendOTP}
+              disabled={loading || phoneInput.length < 10}
+            >
+              {loading ? <Loader2 className="size-4 animate-spin" /> : "Send OTP"}
+            </Button>
             <button
               type="button"
-              onClick={() => {
-                setStep("method");
-                setMethod(null);
-                setOtpSent(false);
-                setOtpInput("");
-                setError(null);
-              }}
+              onClick={() => { setStep("method"); setMethod(null); setError(null); }}
               className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
             >
-              ← Back to options
+              ← Back
             </button>
           </div>
         )}
 
-        {/* Error */}
-        {error && (
-          <p role="alert" className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
-            {error}
-          </p>
+        {/* ── Step: Email input (before OTP sent) ── */}
+        {step === "otp" && method === "email" && !otpSent && (
+          <div className="mt-6 space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email address</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                className="h-11"
+                autoFocus
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button
+              variant="hero"
+              size="lg"
+              className="w-full"
+              onClick={handleSendOTP}
+              disabled={loading || !emailInput.includes("@")}
+            >
+              {loading ? <Loader2 className="size-4 animate-spin" /> : "Send OTP"}
+            </Button>
+            <button
+              type="button"
+              onClick={() => { setStep("method"); setMethod(null); setError(null); }}
+              className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
+            >
+              ← Back
+            </button>
+          </div>
         )}
 
-        {/* Close */}
-        <button
-          type="button"
-          onClick={closeLoginModal}
-          aria-label="Close login modal"
-          className="absolute right-5 top-5 flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          ✕
-        </button>
+        {/* ── Step: OTP entry ── */}
+        {step === "otp" && otpSent && (
+          <div className="mt-6 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              We sent a 6-digit code to{" "}
+              <span className="font-semibold text-foreground">
+                {method === "phone" ? `+91 ${phoneInput}` : emailInput}
+              </span>
+            </p>
+
+            <OtpInput value={otpInput} onChange={setOtpInput} />
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+
+            <Button
+              variant="hero"
+              size="lg"
+              className="w-full"
+              onClick={handleVerifyOTP}
+              disabled={loading || otpInput.replace(/\s/g, "").length < 6}
+            >
+              {loading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <>
+                  <Check className="size-4" /> Verify & continue
+                </>
+              )}
+            </Button>
+
+            <div className="flex items-center justify-between text-sm">
+              <button
+                type="button"
+                onClick={() => { setOtpSent(false); setOtpInput(""); setError(null); }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Change {method === "phone" ? "number" : "email"}
+              </button>
+              <button
+                type="button"
+                onClick={handleSendOTP}
+                disabled={loading}
+                className="font-semibold text-primary hover:underline disabled:opacity-50"
+              >
+                Resend code
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

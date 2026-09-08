@@ -233,7 +233,7 @@ function WorkPage() {
     <div className="mx-auto max-w-7xl px-5 py-14 lg:px-8">
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div>
-          <p className="text-sm font-semibold text-primary">Worker dashboard</p>
+          <p className="text-sm font-semibold text-primary">Find work</p>
           <h1 className="mt-2 text-4xl sm:text-5xl">Shifts near you</h1>
           <p className="mt-3 text-muted-foreground">
             {displayedCount} open shifts in catering today. Wage shown before you book.
@@ -352,49 +352,60 @@ function WorkPage() {
         {/* Sidebar — shows profile if logged in, sign-up nudge if not */}
         <aside className="h-fit rounded-3xl border border-border bg-surface p-7 lg:sticky lg:top-24">
           {isLoggedIn ? (
-            <>
-              <div className="flex size-16 items-center justify-center rounded-2xl bg-[image:linear-gradient(135deg,var(--brand),var(--brand-deep))] font-display text-2xl font-bold text-primary-foreground shadow-brand">
-                RM
-              </div>
-              <h2 className="mt-5 text-xl">Rahul Mehta</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Banquet server · 3 years</p>
-              <div className="mt-4">
-                <VerifiedBadge />
-              </div>
-              <dl className="mt-7 space-y-4 text-sm">
-                <div className="flex items-center justify-between">
-                  <dt className="text-muted-foreground">Shifts completed</dt>
-                  <dd className="font-semibold">128</dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt className="text-muted-foreground">Punctuality</dt>
-                  <dd className="font-semibold text-success">98%</dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt className="text-muted-foreground">Rating</dt>
-                  <dd className="flex items-center gap-1.5 font-semibold">
-                    <Star className="size-4 fill-gold text-gold" /> 4.9
-                  </dd>
-                </div>
-              </dl>
-              <div className="mt-7 rounded-2xl border border-gold/35 bg-gold/10 p-4">
-                <p className="flex items-center gap-2 text-sm font-semibold">
-                  <Clock className="size-4 text-gold" /> Renew badge in 42 days
-                </p>
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  Keep punctuality above 90% to auto-renew.
-                </p>
-              </div>
-              <Button variant="outline" size="lg" className="mt-6 w-full" asChild>
-                <Link to="/profile">Edit profile</Link>
-              </Button>
-            </>
+            <LoggedInSidebar />
           ) : (
             <GuestSidebarNudge />
           )}
         </aside>
       </div>
     </div>
+  );
+}
+
+// ─── Logged-in sidebar ────────────────────────────────────────────────────────
+
+function LoggedInSidebar() {
+  const { user } = useAuth();
+  return (
+    <>
+      <div className="flex size-16 items-center justify-center rounded-2xl bg-[image:linear-gradient(135deg,var(--brand),var(--brand-deep))] font-display text-2xl font-bold text-primary-foreground shadow-brand">
+        {user?.avatar ?? "U"}
+      </div>
+      <h2 className="mt-5 text-xl">{user?.name ?? "Your Profile"}</h2>
+      {user?.location && (
+        <p className="mt-1 text-sm text-muted-foreground">{user.location}</p>
+      )}
+      <div className="mt-4">
+        <VerifiedBadge />
+      </div>
+      <dl className="mt-7 space-y-4 text-sm">
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Shifts completed</dt>
+          <dd className="font-semibold">14</dd>
+        </div>
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Punctuality</dt>
+          <dd className="font-semibold text-success">98%</dd>
+        </div>
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Rating</dt>
+          <dd className="flex items-center gap-1.5 font-semibold">
+            <Star className="size-4 fill-gold text-gold" /> 4.9
+          </dd>
+        </div>
+      </dl>
+      <div className="mt-7 rounded-2xl border border-gold/35 bg-gold/10 p-4">
+        <p className="flex items-center gap-2 text-sm font-semibold">
+          <Clock className="size-4 text-gold" /> Renew badge in 42 days
+        </p>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          Keep punctuality above 90% to auto-renew.
+        </p>
+      </div>
+      <Button variant="outline" size="lg" className="mt-6 w-full" asChild>
+        <Link to="/profile">Edit profile</Link>
+      </Button>
+    </>
   );
 }
 
@@ -410,7 +421,7 @@ function GuestSidebarNudge() {
           ?
         </span>
       </div>
-      <h3 className="mt-5 text-lg font-semibold">Ready to work?</h3>
+      <h3 className="mt-5 text-lg font-semibold">Ready to find work?</h3>
       <p className="mt-2 text-sm text-muted-foreground">
         Create a free account to book shifts, track earnings and build your verified profile.
       </p>

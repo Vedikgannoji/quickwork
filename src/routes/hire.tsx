@@ -13,13 +13,13 @@ import { useAuth } from "@/lib/auth-context";
 export const Route = createFileRoute("/hire")({
   head: () => ({
     meta: [
-      { title: "Employer Dashboard — Post a Shift on QuickWork" },
+      { title: "Post a Shift — QuickWork" },
       {
         name: "description",
         content:
-          "Post a catering shift in under a minute, review verified applicants and track job status from one QuickWork dashboard.",
+          "Post a catering shift in under a minute, review verified applicants and track job status from your QuickWork account.",
       },
-      { property: "og:title", content: "QuickWork Employer Dashboard" },
+      { property: "og:title", content: "QuickWork — Post a Shift" },
       {
         property: "og:description",
         content: "Post shifts, review verified applicants and track every booking in one place.",
@@ -78,17 +78,17 @@ function HirePage() {
     <div className="mx-auto max-w-7xl px-5 py-14 lg:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold text-primary">Employer dashboard</p>
+          <p className="text-sm font-semibold text-primary">Post a shift</p>
           <h1 className="mt-2 text-4xl sm:text-5xl">
-            {isLoggedIn ? "Saffron Caterers" : "Post a shift"}
+            {isLoggedIn ? "Hire workers" : "Post a shift"}
           </h1>
           <p className="mt-3 text-muted-foreground">
             {isLoggedIn
               ? "3 active shifts · 14 workers booked this week"
-              : "Log in to manage your shifts and applicants."}
+              : "Log in to post shifts and manage applicants."}
           </p>
         </div>
-        {isLoggedIn && <VerifiedBadge label="Verified Business" tone="success" />}
+        {isLoggedIn && <VerifiedBadge label="Verified" tone="success" />}
       </div>
 
       {/* Gate banner for logged-out visitors */}
@@ -101,7 +101,7 @@ function HirePage() {
             <div>
               <p className="font-semibold">Log in to post and manage shifts</p>
               <p className="text-sm text-muted-foreground">
-                You can browse applicants below — sign up to start hiring.
+                Browse applicants below — sign in to start hiring.
               </p>
             </div>
           </div>
