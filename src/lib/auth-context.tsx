@@ -14,8 +14,8 @@ export interface AuthUser {
   email: string | null;
   profileComplete: boolean;
   /** Avatar URL or initials */
-  avatar?: string;
-  location?: string;
+  avatar?: string | undefined;
+  location?: string | undefined;
 }
 
 export interface PendingAction {

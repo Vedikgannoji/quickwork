@@ -16,6 +16,7 @@ import { Footer } from "@/components/footer";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth-context";
 import { LoginModal } from "@/components/login-modal";
+import { useAutoRapidJobCheck } from "@/lib/use-rapid-job-scheduler";
 
 
 function NotFoundComponent() {
@@ -139,6 +140,16 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  // Initialize rapid job scheduler for automatic expiration checking
+  useAutoRapidJobCheck({
+    checkInterval: 60000, // Check every minute
+    onExpiry: (jobId, reason) => {
+      console.log(`[Rapid Job] ${jobId}: ${reason}`);
+      // In a real app, this would trigger a state update or refetch
+      // For now, the scheduler runs in the background
+    },
+  });
 
   return (
     <QueryClientProvider client={queryClient}>

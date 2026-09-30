@@ -9,6 +9,8 @@
  */
 
 import { create } from 'zustand';
+import type { JobCategoryValue, JobTypeValue, JobLocationValue, JobRequirements, JobInstructions, ReportingContact, JobStatusValue } from './job-types';
+import { calculateDuration, calculatePositionsRemaining, calculateJobStatus, JobStatus } from './job-types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,17 +43,55 @@ export interface Category {
   slots: Slot[];
 }
 
+/**
+ * Extended Job interface with expanded data model.
+ * Includes all new fields while maintaining booking functionality.
+ */
 export interface Job {
   id: string;
   employerId: string;
-  title: string;
+  
+  // New required fields
+  jobTitle: string;
+  category: JobCategoryValue;
   description: string;
-  location: string;
-  /** ISO date string */
-  date: string;
-  startTime: string;
-  endTime: string;
+  
+  // Location (structured or legacy string for backward compatibility)
+  location: JobLocationValue;
+  
+  // Timing
+  date: string; // ISO date string
+  startTime: string; // HH:mm format
+  endTime: string; // HH:mm format
+  duration: number; // Calculated duration in minutes
+  
+  // Job type
+  jobType: JobTypeValue;
+  
+  // Position tracking
+  positionsRequired: number;
+  positionsConfirmed: number;
+  positionsRemaining: number;
+  
+  // Job status (auto-updated)
+  status: JobStatusValue;
+  
+  // Facilities (job-level, not per-category)
+  facilities?: string[] | undefined;
+  
+  // Rapid Jobs
+  isRapidJob: boolean;
+  rapidJobExpiresAt?: string | undefined;
+  
+  // Requirements, instructions, and reporting (new fields)
+  requirements?: JobRequirements | undefined;
+  instructions?: JobInstructions | undefined;
+  reportingContact?: ReportingContact | undefined; // Private: only for confirmed workers
+  
+  // Booking-specific: multiple role categories with different wages
   categories: Category[];
+  
+  // Metadata
   createdAt: string;
   updatedAt: string;
 }
@@ -69,7 +109,7 @@ interface BookingStore {
   slots: Record<string, Slot>;
   
   // Actions
-  createJob: (job: Omit<Job, 'id' | 'createdAt' | 'updatedAt' | 'categories'> & {
+  createJob: (job: Omit<Job, 'id' | 'createdAt' | 'updatedAt' | 'categories' | 'duration'> & {
     categories: Omit<Category, 'id' | 'jobId' | 'slots'>[];
   }) => Job;
   
@@ -113,6 +153,7 @@ export const useBookingStore = create<BookingStore>()(
       createJob: (jobData) => {
         const jobId = get()._generateId();
         const now = new Date().toISOString();
+        const duration = calculateDuration(jobData.startTime, jobData.endTime);
         
         // Create categories and generate slots
         const categories: Category[] = jobData.categories.map(cat => {
@@ -149,12 +190,16 @@ export const useBookingStore = create<BookingStore>()(
         const job: Job = {
           id: jobId,
           employerId: jobData.employerId,
-          title: jobData.title,
+          jobTitle: jobData.jobTitle,
+          category: jobData.category,
           description: jobData.description,
           location: jobData.location,
           date: jobData.date,
           startTime: jobData.startTime,
           endTime: jobData.endTime,
+          duration,
+          jobType: jobData.jobType,
+          facilities: jobData.facilities,
           categories,
           createdAt: now,
           updatedAt: now,
@@ -396,16 +441,29 @@ export const useBookingStore = create<BookingStore>()(
 export function seedMockData() {
   const { createJob } = useBookingStore.getState();
   
-  // Create some sample jobs
+  // Create some sample jobs with structured locations
   const sampleJobs = [
     {
       employerId: 'emp_1',
-      title: 'Banquet Staff Needed for Wedding',
+      jobTitle: 'Banquet Staff Needed for Wedding',
+      category: 'Hospitality' as JobCategoryValue,
       description: 'Looking for experienced banquet staff for a high-end wedding event. Uniform will be provided.',
-      location: 'Andheri East, Mumbai',
+      location: {
+        venueName: 'Grand Palm Banquets',
+        fullAddress: '123 Palm Avenue, Next to City Mall',
+        area: 'Andheri East',
+        city: 'Mumbai',
+        landmark: 'City Mall',
+        mapCoordinates: {
+          latitude: 19.1136,
+          longitude: 72.8697,
+        },
+      },
       date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 2 days from now
       startTime: '16:00',
       endTime: '23:00',
+      jobType: 'one-time' as JobTypeValue,
+      facilities: ['Meals provided', 'Uniform'],
       categories: [
         { name: 'Banquet Server', wage: 1200, headcount: 8 },
         { name: 'Kitchen Helper', wage: 950, headcount: 4 },
@@ -414,12 +472,21 @@ export function seedMockData() {
     },
     {
       employerId: 'emp_2',
-      title: 'Warehouse Loading Staff',
+      jobTitle: 'Warehouse Loading Staff',
+      category: 'Warehouse' as JobCategoryValue,
       description: 'Urgently need warehouse loading staff for weekend shift. Must be able to lift 20kg+',
-      location: 'Bhiwandi, Mumbai',
+      location: {
+        venueName: 'Urban Logistics Hub',
+        fullAddress: 'Plot 45, Industrial Area Phase 2',
+        area: 'Bhiwandi',
+        city: 'Mumbai',
+        landmark: 'Near Highway Toll Plaza',
+      },
       date: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // tomorrow
       startTime: '10:00',
       endTime: '18:00',
+      jobType: 'one-time' as JobTypeValue,
+      facilities: ['Meals provided', 'Transport'],
       categories: [
         { name: 'Warehouse Loader', wage: 1100, headcount: 12 },
         { name: 'Forklift Operator', wage: 1800, headcount: 3 },

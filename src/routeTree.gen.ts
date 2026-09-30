@@ -15,9 +15,14 @@ import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CompleteProfileRouteImport } from './routes/complete-profile'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as HireRouteImport } from './routes/hire'
+import { Route as MyApplicationsRouteImport } from './routes/my-applications'
+import { Route as MyJobsRouteImport } from './routes/my-jobs'
 import { Route as PostJobRouteImport } from './routes/post-job'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as WorkRouteImport } from './routes/work'
+import { Route as BookingConfirmationApplicationIdRouteImport } from './routes/booking-confirmation.$applicationId'
+import { Route as HireJobIdRouteImport } from './routes/hire.$jobId'
+import { Route as WorkJobIdRouteImport } from './routes/work.$jobId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -49,6 +54,16 @@ const HireRoute = HireRouteImport.update({
   path: '/hire',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MyApplicationsRoute = MyApplicationsRouteImport.update({
+  id: '/my-applications',
+  path: '/my-applications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyJobsRoute = MyJobsRouteImport.update({
+  id: '/my-jobs',
+  path: '/my-jobs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PostJobRoute = PostJobRouteImport.update({
   id: '/post-job',
   path: '/post-job',
@@ -64,6 +79,22 @@ const WorkRoute = WorkRouteImport.update({
   path: '/work',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BookingConfirmationApplicationIdRoute =
+  BookingConfirmationApplicationIdRouteImport.update({
+    id: '/booking-confirmation/$applicationId',
+    path: '/booking-confirmation/$applicationId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const HireJobIdRoute = HireJobIdRouteImport.update({
+  id: '/$jobId',
+  path: '/$jobId',
+  getParentRoute: () => HireRoute,
+} as any)
+const WorkJobIdRoute = WorkJobIdRouteImport.update({
+  id: '/$jobId',
+  path: '/$jobId',
+  getParentRoute: () => WorkRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -71,10 +102,15 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/complete-profile': typeof CompleteProfileRoute
   '/dashboard': typeof DashboardRoute
-  '/hire': typeof HireRoute
+  '/hire': typeof HireRouteWithChildren
+  '/my-applications': typeof MyApplicationsRoute
+  '/my-jobs': typeof MyJobsRoute
   '/post-job': typeof PostJobRoute
   '/profile': typeof ProfileRoute
-  '/work': typeof WorkRoute
+  '/work': typeof WorkRouteWithChildren
+  '/booking-confirmation/$applicationId': typeof BookingConfirmationApplicationIdRoute
+  '/hire/$jobId': typeof HireJobIdRoute
+  '/work/$jobId': typeof WorkJobIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -82,10 +118,15 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/complete-profile': typeof CompleteProfileRoute
   '/dashboard': typeof DashboardRoute
-  '/hire': typeof HireRoute
+  '/hire': typeof HireRouteWithChildren
+  '/my-applications': typeof MyApplicationsRoute
+  '/my-jobs': typeof MyJobsRoute
   '/post-job': typeof PostJobRoute
   '/profile': typeof ProfileRoute
-  '/work': typeof WorkRoute
+  '/work': typeof WorkRouteWithChildren
+  '/booking-confirmation/$applicationId': typeof BookingConfirmationApplicationIdRoute
+  '/hire/$jobId': typeof HireJobIdRoute
+  '/work/$jobId': typeof WorkJobIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -94,10 +135,15 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/complete-profile': typeof CompleteProfileRoute
   '/dashboard': typeof DashboardRoute
-  '/hire': typeof HireRoute
+  '/hire': typeof HireRouteWithChildren
+  '/my-applications': typeof MyApplicationsRoute
+  '/my-jobs': typeof MyJobsRoute
   '/post-job': typeof PostJobRoute
   '/profile': typeof ProfileRoute
-  '/work': typeof WorkRoute
+  '/work': typeof WorkRouteWithChildren
+  '/booking-confirmation/$applicationId': typeof BookingConfirmationApplicationIdRoute
+  '/hire/$jobId': typeof HireJobIdRoute
+  '/work/$jobId': typeof WorkJobIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -108,9 +154,14 @@ export interface FileRouteTypes {
     | '/complete-profile'
     | '/dashboard'
     | '/hire'
+    | '/my-applications'
+    | '/my-jobs'
     | '/post-job'
     | '/profile'
     | '/work'
+    | '/booking-confirmation/$applicationId'
+    | '/hire/$jobId'
+    | '/work/$jobId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -119,9 +170,14 @@ export interface FileRouteTypes {
     | '/complete-profile'
     | '/dashboard'
     | '/hire'
+    | '/my-applications'
+    | '/my-jobs'
     | '/post-job'
     | '/profile'
     | '/work'
+    | '/booking-confirmation/$applicationId'
+    | '/hire/$jobId'
+    | '/work/$jobId'
   id:
     | '__root__'
     | '/'
@@ -130,9 +186,14 @@ export interface FileRouteTypes {
     | '/complete-profile'
     | '/dashboard'
     | '/hire'
+    | '/my-applications'
+    | '/my-jobs'
     | '/post-job'
     | '/profile'
     | '/work'
+    | '/booking-confirmation/$applicationId'
+    | '/hire/$jobId'
+    | '/work/$jobId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -141,10 +202,13 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   CompleteProfileRoute: typeof CompleteProfileRoute
   DashboardRoute: typeof DashboardRoute
-  HireRoute: typeof HireRoute
+  HireRoute: typeof HireRouteWithChildren
+  MyApplicationsRoute: typeof MyApplicationsRoute
+  MyJobsRoute: typeof MyJobsRoute
   PostJobRoute: typeof PostJobRoute
   ProfileRoute: typeof ProfileRoute
-  WorkRoute: typeof WorkRoute
+  WorkRoute: typeof WorkRouteWithChildren
+  BookingConfirmationApplicationIdRoute: typeof BookingConfirmationApplicationIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -191,6 +255,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HireRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/my-applications': {
+      id: '/my-applications'
+      path: '/my-applications'
+      fullPath: '/my-applications'
+      preLoaderRoute: typeof MyApplicationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-jobs': {
+      id: '/my-jobs'
+      path: '/my-jobs'
+      fullPath: '/my-jobs'
+      preLoaderRoute: typeof MyJobsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/post-job': {
       id: '/post-job'
       path: '/post-job'
@@ -212,8 +290,49 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/booking-confirmation/$applicationId': {
+      id: '/booking-confirmation/$applicationId'
+      path: '/booking-confirmation/$applicationId'
+      fullPath: '/booking-confirmation/$applicationId'
+      preLoaderRoute: typeof BookingConfirmationApplicationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hire/$jobId': {
+      id: '/hire/$jobId'
+      path: '/$jobId'
+      fullPath: '/hire/$jobId'
+      preLoaderRoute: typeof HireJobIdRouteImport
+      parentRoute: typeof HireRoute
+    }
+    '/work/$jobId': {
+      id: '/work/$jobId'
+      path: '/$jobId'
+      fullPath: '/work/$jobId'
+      preLoaderRoute: typeof WorkJobIdRouteImport
+      parentRoute: typeof WorkRoute
+    }
   }
 }
+
+interface HireRouteChildren {
+  HireJobIdRoute: typeof HireJobIdRoute
+}
+
+const HireRouteChildren: HireRouteChildren = {
+  HireJobIdRoute: HireJobIdRoute,
+}
+
+const HireRouteWithChildren = HireRoute._addFileChildren(HireRouteChildren)
+
+interface WorkRouteChildren {
+  WorkJobIdRoute: typeof WorkJobIdRoute
+}
+
+const WorkRouteChildren: WorkRouteChildren = {
+  WorkJobIdRoute: WorkJobIdRoute,
+}
+
+const WorkRouteWithChildren = WorkRoute._addFileChildren(WorkRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -221,10 +340,13 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   CompleteProfileRoute: CompleteProfileRoute,
   DashboardRoute: DashboardRoute,
-  HireRoute: HireRoute,
+  HireRoute: HireRouteWithChildren,
+  MyApplicationsRoute: MyApplicationsRoute,
+  MyJobsRoute: MyJobsRoute,
   PostJobRoute: PostJobRoute,
   ProfileRoute: ProfileRoute,
-  WorkRoute: WorkRoute,
+  WorkRoute: WorkRouteWithChildren,
+  BookingConfirmationApplicationIdRoute: BookingConfirmationApplicationIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

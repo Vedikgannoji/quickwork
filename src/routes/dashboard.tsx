@@ -244,10 +244,10 @@ function DashboardPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Your posted jobs</h2>
             <Link
-              to="/hire"
+              to="/my-jobs"
               className="text-sm font-semibold text-primary hover:underline"
             >
-              Post a shift →
+              View all jobs →
             </Link>
           </div>
           <ul className="mt-4 space-y-3">
@@ -282,9 +282,9 @@ function DashboardPage() {
             ))}
           </ul>
 
-          <Link to="/hire">
+          <Link to="/my-jobs">
             <Button variant="outline" size="sm" className="mt-4 w-full gap-2">
-              <Plus className="size-4" /> Post another shift
+              <Briefcase className="size-4" /> View All My Jobs
             </Button>
           </Link>
         </section>

@@ -1,5 +1,5 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { Bell, BriefcaseBusiness, LogOut, Menu, Search, User, X, Zap } from "lucide-react";
+import { Bell, BriefcaseBusiness, ClipboardList, LogOut, Menu, Search, User, X, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -89,6 +89,13 @@ function UserMenu() {
             className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <User className="size-4" /> My profile
+          </Link>
+          <Link
+            to="/my-applications"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <ClipboardList className="size-4" /> My Applications
           </Link>
           <Link
             to="/dashboard"
@@ -282,6 +289,15 @@ export function Navbar() {
               </li>
               {isLoggedIn && (
                 <>
+                  <li>
+                    <Link
+                      to="/my-applications"
+                      onClick={() => setMobileOpen(false)}
+                      className="block rounded-lg px-3 py-3 text-sm font-medium"
+                    >
+                      My Applications
+                    </Link>
+                  </li>
                   <li>
                     <Link
                       to="/dashboard"
