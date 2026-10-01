@@ -1,0 +1,283 @@
+/**
+ * position-service.ts
+ *
+ * Typed wrappers around the Supabase RPCs defined in migration
+ * 20261001000001_position_generation.sql.
+ *
+ * All position mutations go through here — never raw .from("job_positions").
+ *
+ * ┌─────────────────────────────────────────────────────────┐
+ * │  Architecture contract                                  │
+ * │  ─────────────────────────────────────────────────────  │
+ * │  • DB is source of truth                                │
+ * │  • BOOKED positions are NEVER removed automatically     │
+ * │  • PENDING locks expire after 2 minutes (cleanup_expired_locks) │
+ * │  • Positions are numbered 1..N per category             │
+ * │  • Category DELETE is blocked when positions are BOOKED  │
+ * └─────────────────────────────────────────────────────────┘
+ */
+
+import { supabase } from "./supabase";
+
+// ─── Result types ──────────────────────────────────────────────────────────────
+
+export type ServiceResult<T = void> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
+
+// ─── Position status ───────────────────────────────────────────────────────────
+
+export type PositionStatus = "AVAILABLE" | "PENDING" | "BOOKED" | "CANCELLED";
+
+// ─── Stats returned by the debug RPC ──────────────────────────────────────────
+
+export interface CategoryPositionEntry {
+  id: string;
+  position_number: number;
+  status: PositionStatus;
+  locked_until: string | null;
+}
+
+export interface CategoryPositionStats {
+  category_id: string;
+  category_name: string;
+  required_workers: number;
+  total: number;
+  available: number;
+  pending: number;
+  pending_live: number;
+  pending_expired: number;
+  booked: number;
+  cancelled: number;
+  active: number;
+  positions: CategoryPositionEntry[];
+}
+
+export interface JobPositionStats {
+  job_id: string;
+  total: number;
+  available: number;
+  pending: number;
+  booked: number;
+  cancelled: number;
+  active: number;
+  categories: CategoryPositionStats[];
+}
+
+// ─── Adjust-RPC response ───────────────────────────────────────────────────────
+
+export interface AdjustPositionsResult {
+  success: boolean;
+  action?: "no_change" | "increased" | "decreased";
+
+  // Increase fields
+  positions_added?: number;
+  new_active_count?: number;
+
+  // Decrease fields
+  requested_count?: number;
+  effective_count?: number;
+  positions_cancelled?: number;
+  capped_by_bookings?: boolean;
+  locked_positions?: number;
+
+  // No-op field
+  active_count?: number;
+
+  error?: string;
+}
+
+// ─── API ───────────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch a full stats snapshot for a job (all categories + all positions).
+ * Uses the STABLE, read-only fn_get_job_position_stats RPC.
+ */
+export async function getJobPositionStats(
+  jobId: string,
+): Promise<ServiceResult<JobPositionStats>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc("fn_get_job_position_stats", {
+    p_job_id: jobId,
+  });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, data: data as JobPositionStats };
+}
+
+/**
+ * Fetch a stats snapshot for a single category.
+ */
+export async function getCategoryPositionStats(
+  categoryId: string,
+): Promise<ServiceResult<CategoryPositionStats>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc("fn_get_category_position_stats", {
+    p_category_id: categoryId,
+  });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, data: data as CategoryPositionStats };
+}
+
+/**
+ * Employer-safe headcount adjustment.
+ *
+ * Increasing: adds new AVAILABLE positions.
+ * Decreasing: cancels AVAILABLE/expired-PENDING from highest number down.
+ *             Never cancels BOOKED or live-PENDING positions.
+ *             If bookings prevent full reduction, returns capped_by_bookings=true.
+ *
+ * This calls employer_adjust_category_headcount() which verifies job ownership.
+ */
+export async function adjustCategoryHeadcount(
+  categoryId: string,
+  newCount: number,
+): Promise<ServiceResult<AdjustPositionsResult>> {
+  if (newCount < 1) {
+    return { ok: false, error: "new_count_must_be_at_least_1" };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc(
+    "employer_adjust_category_headcount",
+    {
+      p_category_id: categoryId,
+      p_new_count: newCount,
+    },
+  );
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  const result = data as AdjustPositionsResult;
+
+  if (!result.success) {
+    return { ok: false, error: result.error ?? "adjustment_failed" };
+  }
+
+  return { ok: true, data: result };
+}
+
+/**
+ * Idempotent gap-fill for a category.
+ *
+ * Use this after any operation that might have left a category with fewer
+ * positions than required_workers (e.g., a partial insert failure).
+ * Safe to call multiple times — ON CONFLICT DO NOTHING.
+ *
+ * Returns the number of newly inserted rows.
+ */
+export async function fillMissingPositions(
+  categoryId: string,
+): Promise<ServiceResult<number>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc(
+    "fn_fill_positions_for_category",
+    { p_category_id: categoryId },
+  );
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, data: (data as number) ?? 0 };
+}
+
+/**
+ * Release all expired PENDING locks across the entire DB.
+ * Safe to call on any page load / at an interval.
+ * Returns number of locks released.
+ */
+export async function releaseExpiredLocks(): Promise<ServiceResult<number>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc("cleanup_expired_locks");
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, data: (data as number) ?? 0 };
+}
+
+/**
+ * Subscribe to live position updates for a job.
+ * Uses Supabase Realtime — the caller must call channel.unsubscribe() on cleanup.
+ *
+ * @param jobId    The job to watch
+ * @param onUpdate Called whenever any position row changes
+ */
+export function subscribeToJobPositions(
+  jobId: string,
+  onUpdate: (payload: {
+    eventType: "INSERT" | "UPDATE" | "DELETE";
+    newRow: Record<string, unknown> | null;
+    oldRow: Record<string, unknown> | null;
+  }) => void,
+) {
+  const channel = supabase
+    .channel(`job_positions:${jobId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "job_positions",
+        filter: `job_id=eq.${jobId}`,
+      },
+      (payload) => {
+        onUpdate({
+          eventType: payload.eventType as "INSERT" | "UPDATE" | "DELETE",
+          newRow: (payload.new as Record<string, unknown>) ?? null,
+          oldRow: (payload.old as Record<string, unknown>) ?? null,
+        });
+      },
+    )
+    .subscribe();
+
+  return channel;
+}
+
+// ─── Formatting helpers ────────────────────────────────────────────────────────
+
+/**
+ * Human-readable label for a position status.
+ */
+export function statusLabel(status: PositionStatus): string {
+  switch (status) {
+    case "AVAILABLE": return "Available";
+    case "PENDING":   return "Hold (2 min)";
+    case "BOOKED":    return "Booked";
+    case "CANCELLED": return "Cancelled";
+  }
+}
+
+/**
+ * CSS colour token for a position status badge.
+ * Returns a Tailwind class string.
+ */
+export function statusColour(status: PositionStatus): string {
+  switch (status) {
+    case "AVAILABLE": return "bg-success/15 text-success border-success/30";
+    case "PENDING":   return "bg-gold/15 text-gold-foreground border-gold/40";
+    case "BOOKED":    return "bg-primary/15 text-primary border-primary/30";
+    case "CANCELLED": return "bg-muted text-muted-foreground border-border";
+  }
+}
+
+/**
+ * Returns a zero-padded position label.
+ * e.g. formatPositionNumber(3, 12) → "Position 03"
+ *      formatPositionNumber(1, 5)  → "Position 01"
+ */
+export function formatPositionNumber(n: number, total: number): string {
+  const digits = total >= 100 ? 3 : 2;
+  return `Position ${String(n).padStart(digits, "0")}`;
+}
