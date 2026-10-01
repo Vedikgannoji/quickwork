@@ -23,6 +23,7 @@ import { Route as WorkRouteImport } from './routes/work'
 import { Route as BookingConfirmationApplicationIdRouteImport } from './routes/booking-confirmation.$applicationId'
 import { Route as HireJobIdRouteImport } from './routes/hire.$jobId'
 import { Route as WorkJobIdRouteImport } from './routes/work.$jobId'
+import { Route as WorkJobIdPositionsRouteImport } from './routes/work.$jobId.positions'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -95,6 +96,11 @@ const WorkJobIdRoute = WorkJobIdRouteImport.update({
   path: '/$jobId',
   getParentRoute: () => WorkRoute,
 } as any)
+const WorkJobIdPositionsRoute = WorkJobIdPositionsRouteImport.update({
+  id: '/positions',
+  path: '/positions',
+  getParentRoute: () => WorkJobIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -110,7 +116,8 @@ export interface FileRoutesByFullPath {
   '/work': typeof WorkRouteWithChildren
   '/booking-confirmation/$applicationId': typeof BookingConfirmationApplicationIdRoute
   '/hire/$jobId': typeof HireJobIdRoute
-  '/work/$jobId': typeof WorkJobIdRoute
+  '/work/$jobId': typeof WorkJobIdRouteWithChildren
+  '/work/$jobId/positions': typeof WorkJobIdPositionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,7 +133,8 @@ export interface FileRoutesByTo {
   '/work': typeof WorkRouteWithChildren
   '/booking-confirmation/$applicationId': typeof BookingConfirmationApplicationIdRoute
   '/hire/$jobId': typeof HireJobIdRoute
-  '/work/$jobId': typeof WorkJobIdRoute
+  '/work/$jobId': typeof WorkJobIdRouteWithChildren
+  '/work/$jobId/positions': typeof WorkJobIdPositionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,7 +151,8 @@ export interface FileRoutesById {
   '/work': typeof WorkRouteWithChildren
   '/booking-confirmation/$applicationId': typeof BookingConfirmationApplicationIdRoute
   '/hire/$jobId': typeof HireJobIdRoute
-  '/work/$jobId': typeof WorkJobIdRoute
+  '/work/$jobId': typeof WorkJobIdRouteWithChildren
+  '/work/$jobId/positions': typeof WorkJobIdPositionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/booking-confirmation/$applicationId'
     | '/hire/$jobId'
     | '/work/$jobId'
+    | '/work/$jobId/positions'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/booking-confirmation/$applicationId'
     | '/hire/$jobId'
     | '/work/$jobId'
+    | '/work/$jobId/positions'
   id:
     | '__root__'
     | '/'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/booking-confirmation/$applicationId'
     | '/hire/$jobId'
     | '/work/$jobId'
+    | '/work/$jobId/positions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -311,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkJobIdRouteImport
       parentRoute: typeof WorkRoute
     }
+    '/work/$jobId/positions': {
+      id: '/work/$jobId/positions'
+      path: '/positions'
+      fullPath: '/work/$jobId/positions'
+      preLoaderRoute: typeof WorkJobIdPositionsRouteImport
+      parentRoute: typeof WorkJobIdRoute
+    }
   }
 }
 
@@ -324,12 +343,22 @@ const HireRouteChildren: HireRouteChildren = {
 
 const HireRouteWithChildren = HireRoute._addFileChildren(HireRouteChildren)
 
+interface WorkJobIdRouteChildren {
+  WorkJobIdPositionsRoute: typeof WorkJobIdPositionsRoute
+}
+
+const WorkJobIdRouteChildren: WorkJobIdRouteChildren = {
+  WorkJobIdPositionsRoute: WorkJobIdPositionsRoute,
+}
+
+const WorkJobIdRouteWithChildren = WorkJobIdRoute._addFileChildren(WorkJobIdRouteChildren)
+
 interface WorkRouteChildren {
-  WorkJobIdRoute: typeof WorkJobIdRoute
+  WorkJobIdRoute: typeof WorkJobIdRouteWithChildren
 }
 
 const WorkRouteChildren: WorkRouteChildren = {
-  WorkJobIdRoute: WorkJobIdRoute,
+  WorkJobIdRoute: WorkJobIdRouteWithChildren,
 }
 
 const WorkRouteWithChildren = WorkRoute._addFileChildren(WorkRouteChildren)

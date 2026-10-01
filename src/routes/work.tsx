@@ -552,10 +552,14 @@ function JobCard({ job, index }: JobCardProps) {
           {/* Rapid badge */}
           {job.isRapidJob && !isFull && (
             <div className="mb-3">
-              <RapidJobBadge
-                rapidJobExpiresAt={job.rapidJobExpiresAt ?? undefined}
-                variant="compact"
-              />
+              {job.rapidJobExpiresAt ? (
+                <RapidJobBadge
+                  rapidJobExpiresAt={job.rapidJobExpiresAt}
+                  variant="compact"
+                />
+              ) : (
+                <RapidJobBadge variant="compact" />
+              )}
             </div>
           )}
 
@@ -1257,7 +1261,7 @@ function GuestSidebarNudge() {
         variant="hero"
         size="lg"
         className="mt-5 w-full"
-        onClick={() => openLoginModal({ type: "apply-job" })}
+        onClick={() => openLoginModal({ type: "book-shift" })}
         id="guest-signup-btn"
       >
         Sign up — it's free
