@@ -51,8 +51,11 @@ import {
 } from "@/lib/job-types";
 import { notifyEligibleWorkers, scheduleReminderNotification } from "@/lib/rapid-job-notifications";
 import { supabase } from "@/lib/supabase";
-import type { JobInsert, JobCategoryInsert } from "@/lib/database.types";
+import type { Database } from "@/lib/database.types";
 import { useAuth } from "@/lib/auth-context";
+
+type JobInsert = Database["public"]["Tables"]["jobs"]["Insert"];
+type JobCategoryInsert = Database["public"]["Tables"]["job_categories"]["Insert"];
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 

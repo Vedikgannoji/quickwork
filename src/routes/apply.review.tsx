@@ -304,7 +304,6 @@ function ReviewPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any).rpc("confirm_booking", {
       p_position_id: booking.positionId,
-      p_worker_id: user.id,
     });
 
     if (error) {
@@ -470,11 +469,11 @@ function ReviewPage() {
           {booking.isRapidJob && (
             <div className="mt-4">
               <RapidJobBadge
-                jobDate={booking.jobDate}
-                startTime={booking.startTime}
-                endTime={booking.endTime}
-                rapidJobExpiresAt={booking.rapidJobExpiresAt}
-                variant="banner"
+                jobDate={booking.jobDate ?? new Date().toISOString().split("T")[0]!}
+                startTime={booking.startTime ?? "09:00"}
+                {...(booking.endTime !== undefined && { endTime: booking.endTime })}
+                rapidJobExpiresAt={booking.rapidJobExpiresAt ?? null}
+                variant="large"
                 onCutoff={() => setIsRapidCutoff(true)}
               />
             </div>

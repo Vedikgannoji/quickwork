@@ -908,14 +908,14 @@ export const useApplicationStore = create<ApplicationStore>()((set, get) => ({
   },
   
   // ─── Get Next Waitlisted Applicant ────────────────────────────────────────
-  getNextWaitlistedApplicant: (jobId) => {
+  getNextWaitlistedApplicant: (jobId: string): Application | null => {
     const waitlistedApps = get().getApplicationsForJob(
       jobId,
       ApplicationStatus.Waitlisted
     );
     
     // Return the oldest waitlisted application (first in queue)
-    return waitlistedApps.length > 0 ? waitlistedApps[waitlistedApps.length - 1] : null;
+    return waitlistedApps.length > 0 ? waitlistedApps[waitlistedApps.length - 1]! : null;
   },
   
   // ─── Internal: Generate ID ────────────────────────────────────────────────

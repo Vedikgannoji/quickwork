@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  ChevronRight,
   Clock,
   Info,
   ListChecks,
@@ -124,7 +125,7 @@ async function fetchJobDetail(jobId: string): Promise<{
       id, job_title, category, description, job_type,
       venue_name, full_address, area, city, landmark,
       job_date, start_time, end_time,
-      facilities, requirements, instructions, reporting_contact,
+      facilities, requirements, instructions,
       is_rapid_job, rapid_job_expires_at, status,
       job_categories (
         id, name, description, required_workers, wage, sort_order,
@@ -195,8 +196,7 @@ async function fetchJobDetail(jobId: string): Promise<{
     facilities: (row.facilities ?? []) as string[],
     requirements: (row.requirements as JobDetail["requirements"]) ?? null,
     instructions: (row.instructions as JobDetail["instructions"]) ?? null,
-    reportingContact:
-      (row.reporting_contact as JobDetail["reportingContact"]) ?? null,
+    reportingContact: null, // Hidden - will be fetched securely in later phase
     isRapidJob: row.is_rapid_job as boolean,
     rapidJobExpiresAt: row.rapid_job_expires_at as string | null,
     status: row.status as string,

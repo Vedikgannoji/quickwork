@@ -1,403 +1,648 @@
-/**
- * Supabase Database Type Definitions
- *
- * Auto-generated structure aligned with the schema in:
- *   supabase/migrations/20261001000000_initial_schema.sql
- *
- * After connecting to a real Supabase project run:
- *   supabase gen types typescript --project-id <your-project-id> > src/lib/database.types.ts
- * to regenerate with exact column precision.
- */
-
 export type Json =
   | string
   | number
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[];
+  | Json[]
 
-// ─── Position / Application Status Literals ───────────────────────────────────
-
-export type PositionStatus = "AVAILABLE" | "PENDING" | "BOOKED" | "CANCELLED";
-
-export type ApplicationStatus =
-  | "PENDING"
-  | "ACCEPTED"
-  | "REJECTED"
-  | "CANCELLED"
-  | "COMPLETED";
-
-export type JobStatus =
-  | "Open"
-  | "PartiallyFilled"
-  | "FullyFilled"
-  | "Completed"
-  | "Cancelled";
-
-// ─── Database Shape ────────────────────────────────────────────────────────────
-
-export interface Database {
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.18"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
-      // ── profiles ───────────────────────────────────────────────────────────
-      profiles: {
-        Row: {
-          id: string;                   // uuid — matches auth.users.id
-          name: string | null;
-          phone: string | null;
-          email: string | null;
-          avatar_url: string | null;
-          location: string | null;
-          profile_complete: boolean;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id: string;
-          name?: string | null;
-          phone?: string | null;
-          email?: string | null;
-          avatar_url?: string | null;
-          location?: string | null;
-          profile_complete?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          name?: string | null;
-          phone?: string | null;
-          email?: string | null;
-          avatar_url?: string | null;
-          location?: string | null;
-          profile_complete?: boolean;
-          updated_at?: string;
-        };
-      };
-
-      // ── jobs ───────────────────────────────────────────────────────────────
-      jobs: {
-        Row: {
-          id: string;
-          employer_id: string;
-          job_title: string;
-          category: string;
-          description: string;
-          job_type: string;
-          venue_name: string;
-          full_address: string;
-          area: string;
-          city: string;
-          landmark: string | null;
-          job_date: string;             // ISO date string "YYYY-MM-DD"
-          start_time: string;           // "HH:MM:SS"
-          end_time: string;             // "HH:MM:SS"
-          facilities: string[];
-          requirements: Json;
-          instructions: Json;
-          reporting_contact: Json;
-          is_rapid_job: boolean;
-          rapid_job_expires_at: string | null;
-          status: JobStatus;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          employer_id: string;
-          job_title: string;
-          category: string;
-          description: string;
-          job_type?: string;
-          venue_name: string;
-          full_address: string;
-          area: string;
-          city: string;
-          landmark?: string | null;
-          job_date: string;
-          start_time: string;
-          end_time: string;
-          facilities?: string[];
-          requirements?: Json;
-          instructions?: Json;
-          reporting_contact?: Json;
-          is_rapid_job?: boolean;
-          rapid_job_expires_at?: string | null;
-          status?: JobStatus;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          job_title?: string;
-          category?: string;
-          description?: string;
-          job_type?: string;
-          venue_name?: string;
-          full_address?: string;
-          area?: string;
-          city?: string;
-          landmark?: string | null;
-          job_date?: string;
-          start_time?: string;
-          end_time?: string;
-          facilities?: string[];
-          requirements?: Json;
-          instructions?: Json;
-          reporting_contact?: Json;
-          is_rapid_job?: boolean;
-          rapid_job_expires_at?: string | null;
-          status?: JobStatus;
-          updated_at?: string;
-        };
-      };
-
-      // ── job_categories ─────────────────────────────────────────────────────
-      job_categories: {
-        Row: {
-          id: string;
-          job_id: string;
-          name: string;
-          description: string | null;
-          required_workers: number;
-          wage: number;                 // rupees per shift
-          requirements: Json;
-          sort_order: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          job_id: string;
-          name: string;
-          description?: string | null;
-          required_workers: number;
-          wage: number;
-          requirements?: Json;
-          sort_order?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          name?: string;
-          description?: string | null;
-          required_workers?: number;
-          wage?: number;
-          requirements?: Json;
-          sort_order?: number;
-          updated_at?: string;
-        };
-      };
-
-      // ── job_positions ──────────────────────────────────────────────────────
-      job_positions: {
-        Row: {
-          id: string;
-          job_id: string;
-          job_category_id: string;
-          position_number: number;
-          status: PositionStatus;
-          worker_id: string | null;
-          application_id: string | null;
-          locked_at: string | null;
-          lock_expires_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          job_id: string;
-          job_category_id: string;
-          position_number: number;
-          status?: PositionStatus;
-          worker_id?: string | null;
-          application_id?: string | null;
-          locked_at?: string | null;
-          lock_expires_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          status?: PositionStatus;
-          worker_id?: string | null;
-          application_id?: string | null;
-          locked_at?: string | null;
-          lock_expires_at?: string | null;
-          updated_at?: string;
-        };
-      };
-
-      // ── applications ───────────────────────────────────────────────────────
       applications: {
         Row: {
-          id: string;
-          worker_id: string;
-          job_id: string;
-          job_category_id: string;
-          position_id: string;
-          status: ApplicationStatus;
-          worker_note: string | null;
-          employer_note: string | null;
-          applied_at: string;
-          confirmed_at: string | null;
-          cancelled_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
+          applied_at: string
+          cancelled_at: string | null
+          confirmed_at: string | null
+          created_at: string
+          employer_note: string | null
+          id: string
+          job_category_id: string
+          job_id: string
+          position_id: string
+          status: string
+          updated_at: string
+          worker_id: string
+          worker_note: string | null
+        }
         Insert: {
-          id?: string;
-          worker_id: string;
-          job_id: string;
-          job_category_id: string;
-          position_id: string;
-          status?: ApplicationStatus;
-          worker_note?: string | null;
-          employer_note?: string | null;
-          applied_at?: string;
-          confirmed_at?: string | null;
-          cancelled_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
+          applied_at?: string
+          cancelled_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          employer_note?: string | null
+          id?: string
+          job_category_id: string
+          job_id: string
+          position_id: string
+          status?: string
+          updated_at?: string
+          worker_id: string
+          worker_note?: string | null
+        }
         Update: {
-          status?: ApplicationStatus;
-          worker_note?: string | null;
-          employer_note?: string | null;
-          confirmed_at?: string | null;
-          cancelled_at?: string | null;
-          updated_at?: string;
-        };
-      };
-    };
-
+          applied_at?: string
+          cancelled_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          employer_note?: string | null
+          id?: string
+          job_category_id?: string
+          job_id?: string
+          position_id?: string
+          status?: string
+          updated_at?: string
+          worker_id?: string
+          worker_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_job_category_id_fkey"
+            columns: ["job_category_id"]
+            isOneToOne: false
+            referencedRelation: "job_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "job_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "job_positions_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          job_id: string
+          name: string
+          required_workers: number
+          requirements: Json | null
+          sort_order: number
+          updated_at: string
+          wage: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          job_id: string
+          name: string
+          required_workers: number
+          requirements?: Json | null
+          sort_order?: number
+          updated_at?: string
+          wage: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          job_id?: string
+          name?: string
+          required_workers?: number
+          requirements?: Json | null
+          sort_order?: number
+          updated_at?: string
+          wage?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_categories_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_positions: {
+        Row: {
+          application_id: string | null
+          created_at: string
+          id: string
+          job_category_id: string
+          job_id: string
+          lock_expires_at: string | null
+          locked_at: string | null
+          position_number: number
+          status: string
+          updated_at: string
+          worker_id: string | null
+        }
+        Insert: {
+          application_id?: string | null
+          created_at?: string
+          id?: string
+          job_category_id: string
+          job_id: string
+          lock_expires_at?: string | null
+          locked_at?: string | null
+          position_number: number
+          status?: string
+          updated_at?: string
+          worker_id?: string | null
+        }
+        Update: {
+          application_id?: string | null
+          created_at?: string
+          id?: string
+          job_category_id?: string
+          job_id?: string
+          lock_expires_at?: string | null
+          locked_at?: string | null
+          position_number?: number
+          status?: string
+          updated_at?: string
+          worker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_positions_application_id_fk"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_positions_job_category_id_fkey"
+            columns: ["job_category_id"]
+            isOneToOne: false
+            referencedRelation: "job_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_positions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_positions_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_positions_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_private: {
+        Row: {
+          created_at: string
+          job_id: string
+          reporting_contact: Json | null
+        }
+        Insert: {
+          created_at?: string
+          job_id: string
+          reporting_contact?: Json | null
+        }
+        Update: {
+          created_at?: string
+          job_id?: string
+          reporting_contact?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_private_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          area: string
+          category: string
+          city: string
+          created_at: string
+          description: string
+          employer_id: string
+          end_time: string
+          facilities: string[] | null
+          full_address: string
+          id: string
+          instructions: Json | null
+          is_rapid_job: boolean
+          job_date: string
+          job_title: string
+          job_type: string
+          landmark: string | null
+          rapid_job_expires_at: string | null
+          requirements: Json | null
+          start_time: string
+          status: string
+          updated_at: string
+          venue_name: string
+        }
+        Insert: {
+          area: string
+          category: string
+          city: string
+          created_at?: string
+          description: string
+          employer_id: string
+          end_time: string
+          facilities?: string[] | null
+          full_address: string
+          id?: string
+          instructions?: Json | null
+          is_rapid_job?: boolean
+          job_date: string
+          job_title: string
+          job_type?: string
+          landmark?: string | null
+          rapid_job_expires_at?: string | null
+          requirements?: Json | null
+          start_time: string
+          status?: string
+          updated_at?: string
+          venue_name: string
+        }
+        Update: {
+          area?: string
+          category?: string
+          city?: string
+          created_at?: string
+          description?: string
+          employer_id?: string
+          end_time?: string
+          facilities?: string[] | null
+          full_address?: string
+          id?: string
+          instructions?: Json | null
+          is_rapid_job?: boolean
+          job_date?: string
+          job_title?: string
+          job_type?: string
+          landmark?: string | null
+          rapid_job_expires_at?: string | null
+          requirements?: Json | null
+          start_time?: string
+          status?: string
+          updated_at?: string
+          venue_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_employer_id_fkey"
+            columns: ["employer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_employer_id_fkey"
+            columns: ["employer_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          id: string
+          location: string | null
+          name: string | null
+          phone: string | null
+          profile_complete: boolean
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id: string
+          location?: string | null
+          name?: string | null
+          phone?: string | null
+          profile_complete?: boolean
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          location?: string | null
+          name?: string | null
+          phone?: string | null
+          profile_complete?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+    }
     Views: {
-      // ── job_positions_public ───────────────────────────────────────────────
       job_positions_public: {
         Row: {
-          id: string;
-          job_id: string;
-          job_category_id: string;
-          position_number: number;
-          status: PositionStatus;
-          lock_expires_at: string | null;   // only present when status = PENDING
-          my_worker_id: string | null;       // only non-null if current user holds the lock
-          my_application_id: string | null;  // only non-null if current user booked this
-          created_at: string;
-          updated_at: string;
-        };
-      };
-    };
-
+          created_at: string | null
+          id: string | null
+          job_category_id: string | null
+          job_id: string | null
+          lock_expires_at: string | null
+          my_application_id: string | null
+          my_worker_id: string | null
+          position_number: number | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          job_category_id?: string | null
+          job_id?: string | null
+          lock_expires_at?: never
+          my_application_id?: never
+          my_worker_id?: never
+          position_number?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          job_category_id?: string | null
+          job_id?: string | null
+          lock_expires_at?: never
+          my_application_id?: never
+          my_worker_id?: never
+          position_number?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_positions_job_category_id_fkey"
+            columns: ["job_category_id"]
+            isOneToOne: false
+            referencedRelation: "job_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_positions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_profiles: {
+        Row: {
+          avatar_url: string | null
+          id: string | null
+          location: string | null
+          name: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          id?: string | null
+          location?: string | null
+          name?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          id?: string | null
+          location?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+    }
     Functions: {
-      // ── RPC return shapes ──────────────────────────────────────────────────
-      reserve_position: {
-        Args: { p_position_id: string; p_worker_id: string };
-        Returns: Json;
-        // { success: true, position_id, lock_expires_at, lock_seconds }
-        // { success: false, error: string }
-      };
+      cancel_application: { Args: { p_application_id: string }; Returns: Json }
+      cleanup_expired_locks: { Args: never; Returns: number }
       confirm_booking: {
-        Args: { p_position_id: string; p_worker_id: string; p_worker_note?: string };
-        Returns: Json;
-        // { success: true, application_id, position_id }
-        // { success: false, error: string }
-      };
-      release_position: {
-        Args: { p_position_id: string; p_worker_id: string };
-        Returns: Json;
-        // { success: true, position_id }
-        // { success: false, error: string }
-      };
-      cancel_application: {
-        Args: { p_application_id: string; p_worker_id: string };
-        Returns: Json;
-        // { success: true, application_id }
-        // { success: false, error: string }
-      };
-      cleanup_expired_locks: {
-        Args: Record<string, never>;
-        Returns: number;
-      };
-    };
-
-    Enums: Record<string, never>;
-    CompositeTypes: Record<string, never>;
-  };
+        Args: { p_position_id: string; p_worker_note?: string }
+        Returns: Json
+      }
+      employer_adjust_category_headcount: {
+        Args: { p_category_id: string; p_new_count: number }
+        Returns: Json
+      }
+      fn_adjust_category_positions: {
+        Args: { p_category_id: string; p_new_count: number }
+        Returns: Json
+      }
+      fn_fill_positions_for_category: {
+        Args: { p_category_id: string }
+        Returns: number
+      }
+      fn_get_category_position_stats: {
+        Args: { p_category_id: string }
+        Returns: Json
+      }
+      fn_get_job_position_stats: { Args: { p_job_id: string }; Returns: Json }
+      release_position: { Args: { p_position_id: string }; Returns: Json }
+      reserve_position: { Args: { p_position_id: string }; Returns: Json }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
 }
 
-// ─── Convenience Type Aliases ─────────────────────────────────────────────────
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
-export type ProfileInsert = Database["public"]["Tables"]["profiles"]["Insert"];
-export type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
-export type Job = Database["public"]["Tables"]["jobs"]["Row"];
-export type JobInsert = Database["public"]["Tables"]["jobs"]["Insert"];
-export type JobUpdate = Database["public"]["Tables"]["jobs"]["Update"];
-
-export type JobCategory = Database["public"]["Tables"]["job_categories"]["Row"];
-export type JobCategoryInsert = Database["public"]["Tables"]["job_categories"]["Insert"];
-export type JobCategoryUpdate = Database["public"]["Tables"]["job_categories"]["Update"];
-
-export type JobPosition = Database["public"]["Tables"]["job_positions"]["Row"];
-export type JobPositionInsert = Database["public"]["Tables"]["job_positions"]["Insert"];
-export type JobPositionUpdate = Database["public"]["Tables"]["job_positions"]["Update"];
-
-export type JobPositionPublic = Database["public"]["Views"]["job_positions_public"]["Row"];
-
-export type Application = Database["public"]["Tables"]["applications"]["Row"];
-export type ApplicationInsert = Database["public"]["Tables"]["applications"]["Insert"];
-export type ApplicationUpdate = Database["public"]["Tables"]["applications"]["Update"];
-
-// ─── RPC Result Types ─────────────────────────────────────────────────────────
-
-export interface ReservePositionResult {
-  success: true;
-  position_id: string;
-  lock_expires_at: string;
-  lock_seconds: number;
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
 }
-export interface ReservePositionError {
-  success: false;
-  error:
-    | "position_not_found"
-    | "job_not_accepting"
-    | "position_locked_by_another_worker"
-    | "position_already_booked"
-    | "position_unavailable"
-    | "worker_already_has_active_application";
-}
-export type ReservePositionResponse = ReservePositionResult | ReservePositionError;
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
-export interface ConfirmBookingResult {
-  success: true;
-  application_id: string;
-  position_id: string;
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
 }
-export interface ConfirmBookingError {
-  success: false;
-  error:
-    | "position_not_found"
-    | "position_already_booked"
-    | "no_active_lock"
-    | "position_cancelled"
-    | "position_unavailable"
-    | "lock_owned_by_different_worker"
-    | "lock_expired";
-}
-export type ConfirmBookingResponse = ConfirmBookingResult | ConfirmBookingError;
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
-export interface CancelApplicationResult {
-  success: true;
-  application_id: string;
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
 }
-export interface CancelApplicationError {
-  success: false;
-  error:
-    | "application_not_found"
-    | "not_your_application"
-    | "application_not_cancellable";
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never) = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
 }
-export type CancelApplicationResponse =
-  | CancelApplicationResult
-  | CancelApplicationError;
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never) = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
+  public: {
+    Enums: {},
+  },
+} as const

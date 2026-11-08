@@ -1087,7 +1087,7 @@ function WorkPage() {
             <ErrorState
               title="Could not load jobs"
               description={error}
-              action={{ label: "Try again", onClick: () => load(false) }}
+              onRetry={() => load(false)}
             />
           )}
 
@@ -1166,20 +1166,20 @@ function WorkPage() {
               )}
 
               {/* Empty state */}
-              {jobs.length === 0 && (
+              {jobs.length === 0 && filtersActive && (
                 <EmptyState
                   icon={SearchX}
                   title="No shifts found"
-                  description={
-                    filtersActive
-                      ? "No shifts match your current filters. Try adjusting them."
-                      : "No shifts are available right now. Check back soon!"
-                  }
-                  action={
-                    filtersActive
-                      ? { label: "Clear filters", onClick: clearAll }
-                      : undefined
-                  }
+                  description="No shifts match your current filters. Try adjusting them."
+                  action={{ label: "Clear filters", onClick: clearAll }}
+                  variant="muted"
+                />
+              )}
+              {jobs.length === 0 && !filtersActive && (
+                <EmptyState
+                  icon={SearchX}
+                  title="No shifts found"
+                  description="No shifts are available right now. Check back soon!"
                   variant="muted"
                 />
               )}

@@ -80,10 +80,10 @@ export function getCoordinatesForArea(areaOrLocation: string): Coordinates | nul
   }
 
   // Common aliases
-  if (clean.includes("gachi")) return HYDERABAD_AREA_COORDINATES.gachibowli;
-  if (clean.includes("hicc") || clean.includes("konda")) return HYDERABAD_AREA_COORDINATES.kondapur;
-  if (clean.includes("airport") || clean.includes("novotel")) return HYDERABAD_AREA_COORDINATES.shamshabad;
-  if (clean.includes("phoenix") || clean.includes("mani")) return HYDERABAD_AREA_COORDINATES.manikonda;
+  if (clean.includes("gachi")) return HYDERABAD_AREA_COORDINATES["gachibowli"] ?? null;
+  if (clean.includes("hicc") || clean.includes("konda")) return HYDERABAD_AREA_COORDINATES["kondapur"] ?? null;
+  if (clean.includes("airport") || clean.includes("novotel")) return HYDERABAD_AREA_COORDINATES["shamshabad"] ?? null;
+  if (clean.includes("phoenix") || clean.includes("mani")) return HYDERABAD_AREA_COORDINATES["manikonda"] ?? null;
 
   return null;
 }

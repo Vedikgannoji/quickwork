@@ -5,7 +5,7 @@
  * Only notifies workers who match specific criteria to avoid spam.
  */
 
-import type { Job } from "./job-types";
+import type { BaseJob } from "./job-types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

@@ -34,7 +34,13 @@ export function RapidJobBadge({
   className = "",
 }: RapidJobBadgeProps) {
   const countdown = useRapidJobCountdown(
-    { jobDate, startTime, endTime, rapidJobExpiresAt, isRapidJob: true },
+    {
+      jobDate,
+      startTime,
+      ...(endTime !== undefined && { endTime }),
+      ...(rapidJobExpiresAt !== undefined && { rapidJobExpiresAt }),
+      isRapidJob: true,
+    },
     onCutoff
   );
 
@@ -132,7 +138,12 @@ export function RapidJobCountdownBlock({
   className?: string;
 }) {
   const countdown = useRapidJobCountdown(
-    { jobDate, startTime, rapidJobExpiresAt, isRapidJob: true },
+    {
+      jobDate,
+      startTime,
+      ...(rapidJobExpiresAt !== undefined && { rapidJobExpiresAt }),
+      isRapidJob: true,
+    },
     onCutoff
   );
 
@@ -239,7 +250,13 @@ export function RapidJobSpotlightCard({
   const [isCutoff, setIsCutoff] = useState(false);
 
   const countdown = useRapidJobCountdown(
-    { jobDate, startTime, endTime, rapidJobExpiresAt, isRapidJob: true },
+    {
+      jobDate,
+      startTime,
+      ...(endTime !== undefined && { endTime }),
+      ...(rapidJobExpiresAt !== undefined && { rapidJobExpiresAt }),
+      isRapidJob: true,
+    },
     () => setIsCutoff(true)
   );
 
@@ -272,9 +289,9 @@ export function RapidJobSpotlightCard({
           <RapidJobBadge
             jobDate={jobDate}
             startTime={startTime}
-            rapidJobExpiresAt={rapidJobExpiresAt}
-            onCutoff={() => setIsCutoff(true)}
+            rapidJobExpiresAt={rapidJobExpiresAt ?? null}
             variant="compact"
+            onCutoff={() => setIsCutoff(true)}
           />
 
           {/* Location & Distance badge */}

@@ -45,16 +45,16 @@ import {
   getJobPositionStats,
   subscribeToJobPositions,
   broadcastPositionUpdate,
-  releaseExpiredLocks,
 } from "@/lib/position-service";
 import { supabase } from "@/lib/supabase";
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/work/$jobId/positions")({
-  validateSearch: (search: Record<string, unknown>): { cat?: string } => ({
-    cat: typeof search.cat === "string" ? search.cat : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { cat?: string } => {
+    const cat = typeof search["cat"] === "string" ? search["cat"] : undefined;
+    return cat !== undefined ? { cat } : {};
+  },
   head: () => ({
     meta: [
       { title: "Select Work Position — QuickWork" },
@@ -249,12 +249,10 @@ const MOCK_WAGES: Record<string, number> = {
 
 async function rpcReservePosition(
   positionId: string,
-  workerId: string,
 ): Promise<{ ok: boolean; lockExpiresAt: string | null; error: string | null }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any).rpc("reserve_position", {
     p_position_id: positionId,
-    p_worker_id: workerId,
   });
   if (error) return { ok: false, lockExpiresAt: null, error: error.message };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -266,12 +264,10 @@ async function rpcReservePosition(
 
 async function rpcReleasePosition(
   positionId: string,
-  workerId: string,
 ): Promise<{ ok: boolean; error: string | null }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any).rpc("release_position", {
     p_position_id: positionId,
-    p_worker_id: workerId,
   });
   if (error) return { ok: false, error: error.message };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -604,8 +600,6 @@ function PositionSelectionPage() {
       }
       setWages(wageMap);
 
-      await releaseExpiredLocks();
-
       const statsResult = await getJobPositionStats(jobId);
       if (cancelled) return;
 
@@ -783,7 +777,7 @@ function PositionSelectionPage() {
       // Deselect same position
       if (selection?.positionId === positionId) {
         setReleasing(true);
-        if (!isMock) await rpcReleasePosition(positionId, effectiveWorkerId);
+        if (!isMock) await rpcReleasePosition(positionId);
         broadcastPositionUpdate(jobId, {
           id: positionId,
           job_id: jobId,
@@ -800,7 +794,7 @@ function PositionSelectionPage() {
       // Release previous lock before acquiring new one
       if (selection) {
         if (!isMock) {
-          await rpcReleasePosition(selection.positionId, effectiveWorkerId);
+          await rpcReleasePosition(selection.positionId);
         }
         broadcastPositionUpdate(jobId, {
           id: selection.positionId,
@@ -817,7 +811,7 @@ function PositionSelectionPage() {
       let lockExpiresAt: string | null = null;
 
       if (!isMock) {
-        const result = await rpcReservePosition(positionId, effectiveWorkerId);
+        const result = await rpcReservePosition(positionId);
         if (!result.ok) {
           setReserving(false);
           const friendlyErrors: Record<string, string> = {
@@ -1268,7 +1262,7 @@ function PositionSelectionPage() {
                     if (!selection) return;
                     const prevSel = selection;
                     setReleasing(true);
-                    if (!isMock && currentWorkerId) await rpcReleasePosition(prevSel.positionId, currentWorkerId);
+                    if (!isMock && currentWorkerId) await rpcReleasePosition(prevSel.positionId);
                     broadcastPositionUpdate(jobId, {
                       id: prevSel.positionId,
                       job_id: jobId,

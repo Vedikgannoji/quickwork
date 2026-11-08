@@ -211,12 +211,12 @@ async function fetchJobDetail(jobId: string): Promise<JobDetail> {
           id, name, required_workers, wage, sort_order,
           job_positions (
             id, position_number, status, worker_id, application_id, lock_expires_at,
-            worker:profiles!job_positions_worker_id_fkey ( name, avatar_url )
+            worker:public_profiles!job_positions_worker_id_fkey ( name, avatar_url )
           ),
           applications (
             id, worker_id, job_category_id, position_id, status, applied_at, confirmed_at,
             worker_note, employer_note,
-            worker:profiles!applications_worker_id_fkey ( id, name, avatar_url, phone )
+            worker:public_profiles!applications_worker_id_fkey ( id, name, avatar_url, phone )
           )
         )
       `)

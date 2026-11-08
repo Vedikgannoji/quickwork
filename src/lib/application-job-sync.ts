@@ -5,7 +5,7 @@
  * job position tracking when applications are confirmed or rejected.
  */
 
-import { useApplications } from './application-model';
+import { useApplicationStore } from './application-model';
 import { calculateJobStatus, type JobStatusValue } from './job-types';
 
 /**
@@ -17,7 +17,7 @@ export function syncJobWithApplications(jobId: string): {
   positionsRemaining: number;
   suggestedStatus: JobStatusValue;
 } {
-  const { getConfirmedCount } = useApplications.getState();
+  const getConfirmedCount = useApplicationStore.getState().getConfirmedCount;
   
   // Get confirmed application count
   const positionsConfirmed = getConfirmedCount(jobId);
@@ -45,7 +45,7 @@ export function getUpdatedJobPositions(
   positionsRemaining: number;
   status: JobStatusValue;
 } {
-  const { getConfirmedCount } = useApplications.getState();
+  const getConfirmedCount = useApplicationStore.getState().getConfirmedCount;
   
   const positionsConfirmed = getConfirmedCount(jobId);
   const positionsRemaining = Math.max(0, positionsRequired - positionsConfirmed);
@@ -69,7 +69,7 @@ export function getUpdatedJobPositions(
  * Hook to handle application confirmation with automatic job updates
  */
 export function useApplicationJobSync() {
-  const { confirmApplication, rejectApplication, waitlistApplication, getConfirmedCount } = useApplications();
+  const { confirmApplication, rejectApplication, waitlistApplication, getConfirmedCount } = useApplicationStore();
   
   /**
    * Confirm application and return updated job positions
@@ -176,7 +176,8 @@ export function bulkConfirmWithSync(
   failed: number;
   jobUpdates: Record<string, number>; // jobId -> confirmedCount
 } {
-  const { confirmApplication, getConfirmedCount } = useApplications.getState();
+  const confirmApplication = useApplicationStore.getState().confirmApplication;
+  const getConfirmedCount = useApplicationStore.getState().getConfirmedCount;
   
   let successful = 0;
   let failed = 0;
@@ -213,7 +214,7 @@ export function canJobAcceptApplications(
   reason?: string;
   positionsRemaining: number;
 } {
-  const { getConfirmedCount } = useApplications.getState();
+  const getConfirmedCount = useApplicationStore.getState().getConfirmedCount;
   
   const positionsConfirmed = getConfirmedCount(jobId);
   const positionsRemaining = Math.max(0, positionsRequired - positionsConfirmed);

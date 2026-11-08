@@ -69,10 +69,10 @@ export function useRapidJobScheduler(options: UseRapidJobSchedulerOptions = {}) 
   useEffect(() => {
     // Create scheduler instance
     schedulerRef.current = createRapidJobScheduler({
-      checkInterval,
+      checkInterval: checkInterval ?? 30000,
       onUpdate,
       onLog,
-      getJobs,
+      ...(getJobs !== undefined && { getJobs }),
     });
 
     // Start if autoStart is enabled
@@ -111,7 +111,7 @@ export function useAutoRapidJobCheck(options: {
   getJobs?: () => BaseJob[];
 } = {}) {
   useRapidJobScheduler({
-    checkInterval: options.checkInterval,
+    checkInterval: options.checkInterval ?? 30000,
     onUpdate: (updates) => {
       updates.forEach((update) => {
         if (update.shouldHide && options.onExpiry) {
@@ -125,7 +125,7 @@ export function useAutoRapidJobCheck(options: {
         console.log(`[RapidJobScheduler] ${message}`);
       }
     },
-    getJobs: options.getJobs,
+    ...(options.getJobs !== undefined && { getJobs: options.getJobs }),
     autoStart: true,
   });
 }

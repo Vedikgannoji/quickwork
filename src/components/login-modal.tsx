@@ -55,12 +55,12 @@ function OtpInput({ value, onChange }: { value: string; onChange: (v: string) =>
     next[i] = digit;
     const updated = next.join("").padEnd(6, "").slice(0, 6);
     onChange(updated);
-    if (digit && i < 5) refs[i + 1].current?.focus();
+    if (digit && i < 5) refs[i + 1]?.current?.focus();
   }
 
   function handleKeyDown(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Backspace" && !value[i] && i > 0) {
-      refs[i - 1].current?.focus();
+      refs[i - 1]?.current?.focus();
     }
   }
 
@@ -68,7 +68,7 @@ function OtpInput({ value, onChange }: { value: string; onChange: (v: string) =>
     const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
     if (pasted) {
       onChange(pasted.padEnd(6, "").slice(0, 6));
-      refs[Math.min(pasted.length, 5)].current?.focus();
+      refs[Math.min(pasted.length, 5)]?.current?.focus();
       e.preventDefault();
     }
   }

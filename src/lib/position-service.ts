@@ -191,22 +191,6 @@ export async function fillMissingPositions(
   return { ok: true, data: (data as number) ?? 0 };
 }
 
-/**
- * Release all expired PENDING locks across the entire DB.
- * Safe to call on any page load / at an interval.
- * Returns number of locks released.
- */
-export async function releaseExpiredLocks(): Promise<ServiceResult<number>> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc("cleanup_expired_locks");
-
-  if (error) {
-    return { ok: false, error: error.message };
-  }
-
-  return { ok: true, data: (data as number) ?? 0 };
-}
-
 export interface PositionUpdatePayload {
   eventType: "INSERT" | "UPDATE" | "DELETE";
   newRow: Record<string, unknown> | null;
