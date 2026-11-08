@@ -15,7 +15,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
-import { JobService } from '../services/job-service';
+import { JobService, type CreateJobParams, type GetJobsParams } from '../services/job-service';
 import type { BaseJob, JobCategoryValue, JobStatusValue, JobLocationValue } from '../job-types';
 
 // ─── Query Keys ───────────────────────────────────────────────────────────────
@@ -32,16 +32,7 @@ export const jobKeys = {
 
 // ─── Fetch Jobs ───────────────────────────────────────────────────────────────
 
-interface UseJobsParams {
-  employerId?: string;
-  category?: JobCategoryValue;
-  status?: JobStatusValue;
-  isRapidJob?: boolean;
-  city?: string;
-  area?: string;
-  limit?: number;
-  offset?: number;
-}
+export type UseJobsParams = GetJobsParams;
 
 export function useJobs(
   params?: UseJobsParams,
@@ -85,31 +76,7 @@ export function useJob(
 
 // ─── Create Job ───────────────────────────────────────────────────────────────
 
-interface CreateJobParams {
-  job: {
-    employerId: string;
-    jobTitle: string;
-    category: JobCategoryValue;
-    description: string;
-    location: JobLocationValue;
-    date: string;
-    startTime: string;
-    endTime: string;
-    jobType?: string;
-    isRapidJob?: boolean;
-    rapidJobExpiresAt?: string;
-    facilities?: string[];
-    requirements?: any;
-    instructions?: any;
-  };
-  categories: Array<{
-    name: string;
-    description?: string;
-    requiredWorkers: number;
-    wage: number;
-    requirements?: any;
-  }>;
-}
+export type { CreateJobParams };
 
 export function useCreateJob() {
   const queryClient = useQueryClient();

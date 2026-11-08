@@ -173,6 +173,43 @@ export function baseJobToDbInsert(job: Partial<BaseJob> & {
 
 // ─── Service Class ────────────────────────────────────────────────────────────
 
+export interface CreateJobParams {
+  job: Partial<BaseJob> & {
+    employerId: string;
+    jobTitle: string;
+    category: JobCategoryValue;
+    description: string;
+    location: JobLocationValue;
+    date: string;
+    startTime: string;
+    endTime: string;
+    jobType?: JobTypeValue | undefined;
+    isRapidJob?: boolean | undefined;
+    rapidJobExpiresAt?: string | undefined;
+    facilities?: string[] | undefined;
+    requirements?: JobRequirements | undefined;
+    instructions?: JobInstructions | undefined;
+  };
+  categories: Array<{
+    name: string;
+    description?: string | undefined;
+    requiredWorkers: number;
+    wage: number;
+    requirements?: JobRequirements | undefined;
+  }>;
+}
+
+export interface GetJobsParams {
+  employerId?: string | undefined;
+  category?: JobCategoryValue | undefined;
+  status?: JobStatusValue | undefined;
+  isRapidJob?: boolean | undefined;
+  city?: string | undefined;
+  area?: string | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
+}
+
 export class JobService {
   /**
    * Create a new job with categories and positions.
@@ -181,25 +218,7 @@ export class JobService {
    * 2. Creates job categories
    * 3. Generates position slots for each category
    */
-  static async createJob(params: {
-    job: Partial<BaseJob> & {
-      employerId: string;
-      jobTitle: string;
-      category: JobCategoryValue;
-      description: string;
-      location: JobLocationValue;
-      date: string;
-      startTime: string;
-      endTime: string;
-    };
-    categories: Array<{
-      name: string;
-      description?: string;
-      requiredWorkers: number;
-      wage: number;
-      requirements?: JobRequirements;
-    }>;
-  }): Promise<{ success: true; jobId: string } | { success: false; error: string }> {
+  static async createJob(params: CreateJobParams): Promise<{ success: true; jobId: string } | { success: false; error: string }> {
     const supabase = getSupabase();
     if (!supabase) {
       return { success: false, error: 'Supabase client not initialized' };
@@ -256,7 +275,7 @@ export class JobService {
             job_id: insertedJob.id,
             job_category_id: category.id,
             position_number: i,
-            status: 'OPEN',
+            status: 'AVAILABLE',
           });
         }
       });
@@ -328,7 +347,7 @@ export class JobService {
       if (categories && categories.length > 0) {
         const totalWage = categories.reduce((sum, cat) => sum + (cat.wage * cat.required_workers), 0);
         const totalWorkers = categories.reduce((sum, cat) => sum + cat.required_workers, 0);
-        job.wage = totalWorkers > 0 ? Math.round(totalWage / totalWorkers) : categories[0].wage;
+        job.wage = totalWorkers > 0 ? Math.round(totalWage / totalWorkers) : (categories[0]?.wage ?? 0);
       }
 
       return { success: true, job };
@@ -341,16 +360,7 @@ export class JobService {
   /**
    * Get all jobs (optionally filtered).
    */
-  static async getJobs(params?: {
-    employerId?: string;
-    category?: JobCategoryValue;
-    status?: JobStatusValue;
-    isRapidJob?: boolean;
-    city?: string;
-    area?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{ success: true; jobs: BaseJob[]; total: number } | { success: false; error: string }> {
+  static async getJobs(params?: GetJobsParams): Promise<{ success: true; jobs: BaseJob[]; total: number } | { success: false; error: string }> {
     const supabase = getSupabase();
     if (!supabase) {
       return { success: false, error: 'Supabase client not initialized' };
@@ -447,7 +457,7 @@ export class JobService {
         if (categories.length > 0) {
           const totalWage = categories.reduce((sum, cat) => sum + (cat.wage * cat.required_workers), 0);
           const totalWorkers = categories.reduce((sum, cat) => sum + cat.required_workers, 0);
-          job.wage = totalWorkers > 0 ? Math.round(totalWage / totalWorkers) : categories[0].wage;
+          job.wage = totalWorkers > 0 ? Math.round(totalWage / totalWorkers) : (categories[0]?.wage ?? 0);
         }
 
         return job;

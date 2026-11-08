@@ -35,6 +35,12 @@ function MyApplicationsPage() {
   const { user, isLoggedIn, openLoginModal } = useAuth();
   
   const [filter, setFilter] = useState<'all' | ApplicationStatus>('all');
+
+  // Fetch applications using React Query (always called at top level before early returns)
+  const { data: allApplications, isLoading, error, refetch } = useWorkerApplications(
+    { workerId: user?.id },
+    { enabled: !!user?.id && isLoggedIn }
+  );
   
   // Redirect if not logged in
   if (!isLoggedIn || !user) {
@@ -60,11 +66,6 @@ function MyApplicationsPage() {
       </div>
     );
   }
-  
-  // Fetch applications using React Query
-  const { data: allApplications, isLoading, error, refetch } = useWorkerApplications({
-    workerId: user.id,
-  });
   
   const filteredApplications = filter === 'all'
     ? (allApplications || [])
@@ -189,7 +190,7 @@ function MyApplicationsPage() {
             filteredApplications.map((application) => (
               <ApplicationCard
                 key={application.id}
-                application={application as any}
+                application={application}
                 viewMode="worker"
                 showActions={false}
               />

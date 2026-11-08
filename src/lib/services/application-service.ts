@@ -30,6 +30,7 @@ export type ApplicationStatus =
   | 'ACCEPTED'     // Alternative term for booked
   | 'REJECTED'     // Employer rejected
   | 'CANCELLED'    // Worker or employer cancelled
+  | 'COMPLETED'    // Shift completed
   | 'EXPIRED';     // Lock expired before confirmation
 
 // ─── Frontend Application Type ────────────────────────────────────────────────
@@ -84,12 +85,12 @@ export class ApplicationService {
    */
   static async reservePosition(params: {
     positionId: string;
-    workerId: string;
-    jobId: string;
-    jobCategoryId: string;
-    workerNote?: string;
+    workerId?: string | undefined;
+    jobId?: string | undefined;
+    jobCategoryId?: string | undefined;
+    workerNote?: string | undefined;
   }): Promise<
-    | { success: true; applicationId: string; lockExpiresAt: string }
+    | { success: true; positionId: string; lockExpiresAt: string }
     | { success: false; error: string }
   > {
     const supabase = getSupabase();
@@ -100,7 +101,7 @@ export class ApplicationService {
     try {
       // Call RPC function to reserve position atomically
       const { data, error } = await supabase.rpc('reserve_position', {
-        position_id: params.positionId,
+        p_position_id: params.positionId,
       });
 
       if (error) {
@@ -108,38 +109,16 @@ export class ApplicationService {
         return { success: false, error: error.message };
       }
 
-      if (!data || !data.success) {
-        return { success: false, error: data?.message || 'Failed to reserve position' };
-      }
+      const res = data as { success?: boolean; error?: string; lock_expires_at?: string; position_id?: string } | null;
 
-      // Position is now locked. Create application record.
-      const applicationData: DbApplicationInsert = {
-        job_id: params.jobId,
-        job_category_id: params.jobCategoryId,
-        position_id: params.positionId,
-        worker_id: params.workerId,
-        status: 'PENDING',
-        applied_at: new Date().toISOString(),
-        worker_note: params.workerNote || null,
-      };
-
-      const { data: application, error: appError } = await supabase
-        .from('applications')
-        .insert(applicationData)
-        .select()
-        .single();
-
-      if (appError || !application) {
-        console.error('Failed to create application:', appError);
-        // Release the position lock
-        await supabase.rpc('release_position', { position_id: params.positionId });
-        return { success: false, error: appError?.message || 'Failed to create application' };
+      if (!res || !res.success) {
+        return { success: false, error: res?.error || 'Failed to reserve position' };
       }
 
       return {
         success: true,
-        applicationId: application.id,
-        lockExpiresAt: data.lock_expires_at,
+        positionId: params.positionId,
+        lockExpiresAt: res.lock_expires_at || '',
       };
     } catch (error) {
       console.error('Exception reserving position:', error);
@@ -148,36 +127,76 @@ export class ApplicationService {
   }
 
   /**
-   * Confirm a booking after successful payment.
-   * This is step 3 of the application flow.
-   * 
-   * Uses RPC function for atomic operation.
+   * Release a reserved position lock.
    */
-  static async confirmBooking(params: {
-    applicationId: string;
-    paymentId?: string;
-  }): Promise<{ success: true } | { success: false; error: string }> {
+  static async releasePosition(
+    positionId: string
+  ): Promise<{ success: true } | { success: false; error: string }> {
     const supabase = getSupabase();
     if (!supabase) {
       return { success: false, error: 'Supabase client not initialized' };
     }
 
     try {
-      // Get application to find position ID
-      const { data: application, error: appError } = await supabase
-        .from('applications')
-        .select('position_id')
-        .eq('id', params.applicationId)
-        .single();
+      const { data, error } = await supabase.rpc('release_position', {
+        p_position_id: positionId,
+      });
 
-      if (appError || !application) {
-        return { success: false, error: appError?.message || 'Application not found' };
+      if (error) {
+        console.error('Failed to release position:', error);
+        return { success: false, error: error.message };
+      }
+
+      const res = data as { success?: boolean; error?: string } | null;
+      if (!res || !res.success) {
+        return { success: false, error: res?.error || 'Failed to release position' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Exception releasing position:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Confirm a booking after position reservation.
+   * Uses RPC function for atomic operation.
+   */
+  static async confirmBooking(params: {
+    positionId?: string | undefined;
+    applicationId?: string | undefined;
+    workerNote?: string | undefined;
+    paymentId?: string | undefined;
+  }): Promise<{ success: true; applicationId: string } | { success: false; error: string }> {
+    const supabase = getSupabase();
+    if (!supabase) {
+      return { success: false, error: 'Supabase client not initialized' };
+    }
+
+    try {
+      let positionId = params.positionId;
+      if (!positionId && params.applicationId) {
+        const { data: application, error: appError } = await supabase
+          .from('applications')
+          .select('position_id')
+          .eq('id', params.applicationId)
+          .single();
+
+        if (appError || !application) {
+          return { success: false, error: appError?.message || 'Application not found' };
+        }
+        positionId = application.position_id;
+      }
+
+      if (!positionId) {
+        return { success: false, error: 'Position ID is required' };
       }
 
       // Call RPC function to confirm booking atomically
       const { data, error } = await supabase.rpc('confirm_booking', {
-        position_id: application.position_id,
-        app_id: params.applicationId,
+        p_position_id: positionId,
+        ...(params.workerNote ? { p_worker_note: params.workerNote } : {}),
       });
 
       if (error) {
@@ -185,11 +204,13 @@ export class ApplicationService {
         return { success: false, error: error.message };
       }
 
-      if (!data || !data.success) {
-        return { success: false, error: data?.message || 'Failed to confirm booking' };
+      const res = data as { success?: boolean; error?: string; application_id?: string } | null;
+
+      if (!res || !res.success) {
+        return { success: false, error: res?.error || 'Failed to confirm booking' };
       }
 
-      return { success: true };
+      return { success: true, applicationId: res.application_id || params.applicationId || '' };
     } catch (error) {
       console.error('Exception confirming booking:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -210,7 +231,7 @@ export class ApplicationService {
 
     try {
       const { data, error } = await supabase.rpc('cancel_application', {
-        app_id: applicationId,
+        p_application_id: applicationId,
       });
 
       if (error) {
@@ -218,8 +239,10 @@ export class ApplicationService {
         return { success: false, error: error.message };
       }
 
-      if (!data || !data.success) {
-        return { success: false, error: data?.message || 'Failed to cancel application' };
+      const res = data as { success?: boolean; error?: string } | null;
+
+      if (!res || !res.success) {
+        return { success: false, error: res?.error || 'Failed to cancel application' };
       }
 
       return { success: true };
@@ -263,9 +286,9 @@ export class ApplicationService {
    */
   static async getWorkerApplications(params: {
     workerId: string;
-    status?: ApplicationStatus | ApplicationStatus[];
-    limit?: number;
-    offset?: number;
+    status?: ApplicationStatus | ApplicationStatus[] | undefined;
+    limit?: number | undefined;
+    offset?: number | undefined;
   }): Promise<{ success: true; applications: Application[]; total: number } | { success: false; error: string }> {
     const supabase = getSupabase();
     if (!supabase) {
@@ -314,9 +337,9 @@ export class ApplicationService {
    */
   static async getJobApplications(params: {
     jobId: string;
-    status?: ApplicationStatus | ApplicationStatus[];
-    limit?: number;
-    offset?: number;
+    status?: ApplicationStatus | ApplicationStatus[] | undefined;
+    limit?: number | undefined;
+    offset?: number | undefined;
   }): Promise<{ success: true; applications: Application[]; total: number } | { success: false; error: string }> {
     const supabase = getSupabase();
     if (!supabase) {
@@ -366,7 +389,7 @@ export class ApplicationService {
   static async hasWorkerApplied(params: {
     workerId: string;
     jobId: string;
-  }): Promise<{ success: true; hasApplied: boolean; applicationId?: string } | { success: false; error: string }> {
+  }): Promise<{ success: true; hasApplied: boolean; applicationId?: string | undefined } | { success: false; error: string }> {
     const supabase = getSupabase();
     if (!supabase) {
       return { success: false, error: 'Supabase client not initialized' };
@@ -398,11 +421,11 @@ export class ApplicationService {
 
   /**
    * Get available positions for a job category.
-   * Returns positions that are OPEN (not locked or booked).
+   * Returns positions that are AVAILABLE (not locked or booked).
    */
   static async getAvailablePositions(params: {
     jobId: string;
-    jobCategoryId?: string;
+    jobCategoryId?: string | undefined;
   }): Promise<{ success: true; positions: DbJobPosition[] } | { success: false; error: string }> {
     const supabase = getSupabase();
     if (!supabase) {
@@ -414,7 +437,7 @@ export class ApplicationService {
         .from('job_positions')
         .select('*')
         .eq('job_id', params.jobId)
-        .eq('status', 'OPEN');
+        .eq('status', 'AVAILABLE');
 
       if (params.jobCategoryId) {
         query = query.eq('job_category_id', params.jobCategoryId);
@@ -453,7 +476,7 @@ export class ApplicationService {
         return { success: false, error: error.message };
       }
 
-      return { success: true, releasedCount: data?.released_count || 0 };
+      return { success: true, releasedCount: typeof data === 'number' ? data : 0 };
     } catch (error) {
       console.error('Exception releasing expired locks:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

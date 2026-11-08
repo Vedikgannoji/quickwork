@@ -96,8 +96,13 @@ export interface AdjustPositionsResult {
 export async function getJobPositionStats(
   jobId: string,
 ): Promise<ServiceResult<JobPositionStats>> {
+  const client = getSupabase();
+  if (!client) {
+    return { ok: false, error: "Supabase client not initialized" };
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc("fn_get_job_position_stats", {
+  const { data, error } = await (client as any).rpc("fn_get_job_position_stats", {
     p_job_id: jobId,
   });
 
@@ -114,8 +119,13 @@ export async function getJobPositionStats(
 export async function getCategoryPositionStats(
   categoryId: string,
 ): Promise<ServiceResult<CategoryPositionStats>> {
+  const client = getSupabase();
+  if (!client) {
+    return { ok: false, error: "Supabase client not initialized" };
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc("fn_get_category_position_stats", {
+  const { data, error } = await (client as any).rpc("fn_get_category_position_stats", {
     p_category_id: categoryId,
   });
 
@@ -144,8 +154,13 @@ export async function adjustCategoryHeadcount(
     return { ok: false, error: "new_count_must_be_at_least_1" };
   }
 
+  const client = getSupabase();
+  if (!client) {
+    return { ok: false, error: "Supabase client not initialized" };
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc(
+  const { data, error } = await (client as any).rpc(
     "employer_adjust_category_headcount",
     {
       p_category_id: categoryId,
@@ -178,8 +193,13 @@ export async function adjustCategoryHeadcount(
 export async function fillMissingPositions(
   categoryId: string,
 ): Promise<ServiceResult<number>> {
+  const client = getSupabase();
+  if (!client) {
+    return { ok: false, error: "Supabase client not initialized" };
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc(
+  const { data, error } = await (client as any).rpc(
     "fn_fill_positions_for_category",
     { p_category_id: categoryId },
   );

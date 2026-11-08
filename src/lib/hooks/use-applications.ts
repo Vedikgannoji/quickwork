@@ -39,9 +39,9 @@ export const applicationKeys = {
 
 interface UseWorkerApplicationsParams {
   workerId: string | undefined;
-  status?: ApplicationStatus | ApplicationStatus[];
-  limit?: number;
-  offset?: number;
+  status?: ApplicationStatus | ApplicationStatus[] | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
 }
 
 export function useWorkerApplications(
@@ -78,9 +78,9 @@ export function useWorkerApplications(
 
 interface UseJobApplicationsParams {
   jobId: string | undefined;
-  status?: ApplicationStatus | ApplicationStatus[];
-  limit?: number;
-  offset?: number;
+  status?: ApplicationStatus | ApplicationStatus[] | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
 }
 
 export function useJobApplications(
@@ -165,7 +165,7 @@ export function useHasWorkerApplied(params: {
 
 export function useAvailablePositions(params: {
   jobId: string | undefined;
-  jobCategoryId?: string;
+  jobCategoryId?: string | undefined;
 }) {
   return useQuery({
     queryKey: applicationKeys.availablePositions(params.jobId || '', params.jobCategoryId),
@@ -190,10 +190,10 @@ export function useAvailablePositions(params: {
 
 interface ReservePositionParams {
   positionId: string;
-  workerId: string;
+  workerId?: string | undefined;
   jobId: string;
-  jobCategoryId: string;
-  workerNote?: string;
+  jobCategoryId?: string | undefined;
+  workerNote?: string | undefined;
 }
 
 export function useReservePosition() {
@@ -221,11 +221,36 @@ export function useReservePosition() {
   });
 }
 
+// ─── Release Position ─────────────────────────────────────────────────────────
+
+export function useReleasePosition() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ positionId, jobId }: { positionId: string; jobId: string }) => {
+      const result = await ApplicationService.releasePosition(positionId);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return { positionId, jobId };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({
+        queryKey: applicationKeys.availablePositions(data.jobId),
+      });
+      queryClient.invalidateQueries({ queryKey: jobKeys.detail(data.jobId) });
+      queryClient.invalidateQueries({ queryKey: jobKeys.positions(data.jobId) });
+    },
+  });
+}
+
 // ─── Confirm Booking ──────────────────────────────────────────────────────────
 
 interface ConfirmBookingParams {
-  applicationId: string;
-  paymentId?: string;
+  positionId?: string | undefined;
+  applicationId?: string | undefined;
+  workerNote?: string | undefined;
+  paymentId?: string | undefined;
 }
 
 export function useConfirmBooking() {
@@ -237,7 +262,7 @@ export function useConfirmBooking() {
       if (!result.success) {
         throw new Error(result.error);
       }
-      return params.applicationId;
+      return result.applicationId;
     },
     onSuccess: (applicationId) => {
       // Invalidate the specific application

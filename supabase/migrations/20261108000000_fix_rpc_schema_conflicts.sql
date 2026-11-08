@@ -155,8 +155,8 @@ BEGIN
   WHERE id = v_position.job_category_id;
 
   -- Create application with ACCEPTED status (matches initial schema)
-  INSERT INTO applications (worker_id, job_id, position_id, status, worker_note, confirmed_at)
-  VALUES (v_worker_id, v_job_id, p_position_id, 'ACCEPTED', p_worker_note, now())
+  INSERT INTO applications (worker_id, job_id, job_category_id, position_id, status, worker_note, confirmed_at)
+  VALUES (v_worker_id, v_job_id, v_position.job_category_id, p_position_id, 'ACCEPTED', p_worker_note, now())
   RETURNING id INTO v_application_id;
 
   -- Update position status to BOOKED (CORRECT STATUS)
