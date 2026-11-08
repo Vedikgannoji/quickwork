@@ -207,42 +207,139 @@ export async function releaseExpiredLocks(): Promise<ServiceResult<number>> {
   return { ok: true, data: (data as number) ?? 0 };
 }
 
+export interface PositionUpdatePayload {
+  eventType: "INSERT" | "UPDATE" | "DELETE";
+  newRow: Record<string, unknown> | null;
+  oldRow: Record<string, unknown> | null;
+}
+
+export interface PositionSubscription {
+  unsubscribe: () => void;
+}
+
 /**
  * Subscribe to live position updates for a job.
- * Uses Supabase Realtime — the caller must call channel.unsubscribe() on cleanup.
+ * Uses Supabase Realtime targeted exclusively to `job_positions` filtered by `job_id`.
+ * Avoids memory leaks by removing the channel from the client on unsubscribe.
  *
  * @param jobId    The job to watch
  * @param onUpdate Called whenever any position row changes
  */
 export function subscribeToJobPositions(
   jobId: string,
-  onUpdate: (payload: {
-    eventType: "INSERT" | "UPDATE" | "DELETE";
-    newRow: Record<string, unknown> | null;
-    oldRow: Record<string, unknown> | null;
-  }) => void,
-) {
-  const channel = supabase
-    .channel(`job_positions:${jobId}`)
+  onUpdate: (payload: PositionUpdatePayload) => void,
+): PositionSubscription {
+  const channelName = `job_positions:${jobId}`;
+
+  // 1. Supabase Realtime channel (strictly job_positions table)
+  const channel = supabase.channel(channelName);
+
+  channel
     .on(
       "postgres_changes",
       {
-        event: "*",
+        event: "UPDATE",
         schema: "public",
         table: "job_positions",
         filter: `job_id=eq.${jobId}`,
       },
       (payload) => {
         onUpdate({
-          eventType: payload.eventType as "INSERT" | "UPDATE" | "DELETE",
+          eventType: "UPDATE",
           newRow: (payload.new as Record<string, unknown>) ?? null,
           oldRow: (payload.old as Record<string, unknown>) ?? null,
         });
       },
     )
+    .on(
+      "broadcast",
+      { event: "position_status_update" },
+      ({ payload }) => {
+        if (payload) {
+          onUpdate({
+            eventType: "UPDATE",
+            newRow: payload as Record<string, unknown>,
+            oldRow: null,
+          });
+        }
+      },
+    )
     .subscribe();
 
-  return channel;
+  // 2. Cross-tab synchronization via browser BroadcastChannel (desktop & mobile)
+  let localBc: BroadcastChannel | null = null;
+  if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
+    try {
+      localBc = new BroadcastChannel(`qw_positions_${jobId}`);
+      localBc.onmessage = (event) => {
+        if (event.data && typeof event.data === "object") {
+          onUpdate({
+            eventType: "UPDATE",
+            newRow: event.data as Record<string, unknown>,
+            oldRow: null,
+          });
+        }
+      };
+    } catch {
+      // BroadcastChannel unavailable in this context
+    }
+  }
+
+  return {
+    unsubscribe: () => {
+      try {
+        void channel.unsubscribe();
+        void supabase.removeChannel(channel);
+      } catch (err) {
+        console.warn("[Realtime] Error removing channel:", err);
+      }
+      if (localBc) {
+        try {
+          localBc.close();
+        } catch {}
+        localBc = null;
+      }
+    },
+  };
+}
+
+/**
+ * Broadcasts a position update to other workers and tabs viewing this job.
+ */
+export function broadcastPositionUpdate(
+  jobId: string,
+  payload: {
+    id: string;
+    job_id: string;
+    status: PositionStatus;
+    position_number?: number;
+    category_id?: string;
+    worker_id?: string | null;
+    lock_expires_at?: string | null;
+  },
+) {
+  // 1. Send via Supabase Realtime broadcast
+  try {
+    const channel = supabase.channel(`job_positions:${jobId}`);
+    channel.send({
+      type: "broadcast",
+      event: "position_status_update",
+      payload,
+    });
+  } catch {
+    // Supabase client may be offline
+  }
+
+  // 2. Send via local BroadcastChannel for instant cross-tab sync
+  if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
+    try {
+      const bc = new BroadcastChannel(`qw_positions_${jobId}`);
+      bc.postMessage(payload);
+      setTimeout(() => bc.close(), 100);
+    } catch {
+      // Local broadcast not permitted
+    }
+  }
 }
 
 // ─── Formatting helpers ────────────────────────────────────────────────────────

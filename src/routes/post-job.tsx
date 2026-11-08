@@ -80,12 +80,12 @@ export const Route = createFileRoute("/post-job")({
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { id: "basics",     label: "Basics",       short: "Job Details" },
-  { id: "schedule",   label: "Date & Time",  short: "Schedule" },
-  { id: "workforce",  label: "Workforce",    short: "Categories" },
-  { id: "facilities", label: "Facilities",   short: "Perks" },
+  { id: "basics", label: "Basics", short: "Job Details" },
+  { id: "schedule", label: "Date & Time", short: "Schedule" },
+  { id: "workforce", label: "Workforce", short: "Categories" },
+  { id: "facilities", label: "Facilities", short: "Perks" },
   { id: "requirements", label: "Requirements", short: "Requirements" },
-  { id: "review",    label: "Review",       short: "Review" },
+  { id: "review", label: "Review", short: "Review" },
 ] as const;
 
 const TOTAL_STEPS = STEPS.length;
@@ -94,13 +94,13 @@ const JOB_CATEGORIES_LIST = Object.values(JobCategory);
 
 const FACILITY_OPTIONS = [
   { label: "Meals provided", icon: UtensilsCrossed },
-  { label: "Transport",      icon: Bus },
-  { label: "Uniform",        icon: Shirt },
-  { label: "Locker room",    icon: ShowerHead },
-  { label: "Accommodation",  icon: Briefcase },
-  { label: "Parking",        icon: MapPin },
-  { label: "Equipment",      icon: Wrench },
-  { label: "Water",          icon: Sparkles },
+  { label: "Transport", icon: Bus },
+  { label: "Uniform", icon: Shirt },
+  { label: "Locker room", icon: ShowerHead },
+  { label: "Accommodation", icon: Briefcase },
+  { label: "Parking", icon: MapPin },
+  { label: "Equipment", icon: Wrench },
+  { label: "Water", icon: Sparkles },
 ] as const;
 
 const CATEGORY_ICONS = ["🍽", "🍹", "🥗", "🧃", "🎪", "🎭", "🎵", "🛒", "🧹", "📦", "🚚", "👷", "💼", "🎯"];
@@ -390,11 +390,10 @@ function CategoryEditor({ draft, onChange, onSave, onCancel, isEditing }: Catego
                 key={icon}
                 type="button"
                 onClick={() => onChange({ icon })}
-                className={`h-10 w-10 rounded-xl border-2 text-xl transition-all duration-150 hover:scale-110 ${
-                  draft.icon === icon
-                    ? "border-primary bg-primary/15 shadow-sm"
-                    : "border-border hover:border-primary/50"
-                }`}
+                className={`h-10 w-10 rounded-xl border-2 text-xl transition-all duration-150 hover:scale-110 ${draft.icon === icon
+                  ? "border-primary bg-primary/15 shadow-sm"
+                  : "border-border hover:border-primary/50"
+                  }`}
                 aria-label={`Select icon ${icon}`}
               >
                 {icon}
@@ -509,11 +508,10 @@ function CategoryEditor({ draft, onChange, onSave, onCancel, isEditing }: Catego
                   key={t}
                   type="button"
                   onClick={() => onChange({ wageType: t })}
-                  className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
-                    draft.wageType === t
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${draft.wageType === t
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   {t === "per-shift" ? "Per Shift" : "Per Hour"}
                 </button>
@@ -675,11 +673,11 @@ function PostJobPage() {
   const stepValid = [
     form.title.trim().length > 2 && !!form.category && form.description.trim().length > 5,
     form.venueName.trim().length > 1 &&
-      form.area.trim().length > 1 &&
-      form.city.trim().length > 1 &&
-      !!form.date &&
-      !!form.startTime &&
-      !!form.endTime,
+    form.area.trim().length > 1 &&
+    form.city.trim().length > 1 &&
+    !!form.date &&
+    !!form.startTime &&
+    !!form.endTime,
     form.workCategories.length > 0,
     true, // facilities optional
     true, // requirements optional
@@ -883,11 +881,10 @@ function PostJobPage() {
 
       {/* Rapid Job Toggle */}
       <div
-        className={`mt-8 overflow-hidden rounded-2xl border-2 transition-all duration-300 ${
-          form.isRapidJob
-            ? "border-orange-500 bg-gradient-to-br from-orange-500/10 to-orange-500/5 shadow-lg"
-            : "border-border bg-muted/50"
-        }`}
+        className={`mt-8 overflow-hidden rounded-2xl border-2 transition-all duration-300 ${form.isRapidJob
+          ? "border-orange-500 bg-gradient-to-br from-orange-500/10 to-orange-500/5 shadow-lg"
+          : "border-border bg-muted/50"
+          }`}
       >
         <div className="p-5">
           <div className="flex flex-wrap items-center gap-4">
@@ -896,15 +893,13 @@ function PostJobPage() {
               role="switch"
               aria-checked={form.isRapidJob}
               onClick={() => set("isRapidJob", !form.isRapidJob)}
-              className={`relative flex h-7 w-14 shrink-0 items-center rounded-full border-2 transition-all duration-200 ${
-                form.isRapidJob ? "border-orange-500 bg-orange-500" : "border-border bg-muted"
-              }`}
+              className={`relative flex h-7 w-14 shrink-0 items-center rounded-full border-2 transition-all duration-200 ${form.isRapidJob ? "border-orange-500 bg-orange-500" : "border-border bg-muted"
+                }`}
               id="rapid-job-toggle"
             >
               <span
-                className={`block size-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                  form.isRapidJob ? "translate-x-7" : "translate-x-0.5"
-                }`}
+                className={`block size-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${form.isRapidJob ? "translate-x-7" : "translate-x-0.5"
+                  }`}
               />
             </button>
 
@@ -940,11 +935,10 @@ function PostJobPage() {
                     key={h}
                     type="button"
                     onClick={() => set("rapidJobHours", h)}
-                    className={`rounded-lg px-4 py-2 text-sm font-bold transition-all ${
-                      form.rapidJobHours === h
-                        ? "bg-orange-500 text-white shadow-md"
-                        : "text-orange-600 dark:text-orange-400 hover:bg-orange-500/20"
-                    }`}
+                    className={`rounded-lg px-4 py-2 text-sm font-bold transition-all ${form.rapidJobHours === h
+                      ? "bg-orange-500 text-white shadow-md"
+                      : "text-orange-600 dark:text-orange-400 hover:bg-orange-500/20"
+                      }`}
                   >
                     {h} hour{h === "1" ? "" : "s"}
                   </button>
@@ -974,21 +968,19 @@ function PostJobPage() {
             <li key={s.id} className="flex flex-1 flex-col items-start gap-1.5 min-w-0">
               <div className="flex w-full items-center gap-1">
                 <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-all duration-300 ${
-                    i < step
-                      ? "border-success bg-success text-success-foreground"
-                      : i === step
-                        ? "border-primary bg-primary text-primary-foreground ring-2 ring-primary/20"
-                        : "border-border bg-background text-muted-foreground"
-                  }`}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-all duration-300 ${i < step
+                    ? "border-success bg-success text-success-foreground"
+                    : i === step
+                      ? "border-primary bg-primary text-primary-foreground ring-2 ring-primary/20"
+                      : "border-border bg-background text-muted-foreground"
+                    }`}
                 >
                   {i < step ? <Check className="size-3.5" strokeWidth={3} /> : i + 1}
                 </span>
               </div>
               <span
-                className={`truncate text-xs font-medium leading-tight ${
-                  i === step ? "text-foreground" : "text-muted-foreground"
-                }`}
+                className={`truncate text-xs font-medium leading-tight ${i === step ? "text-foreground" : "text-muted-foreground"
+                  }`}
               >
                 {s.short}
               </span>
@@ -999,11 +991,10 @@ function PostJobPage() {
 
       {/* Form card */}
       <div
-        className={`mt-8 overflow-hidden rounded-3xl border-2 bg-surface p-7 transition-all duration-300 lg:p-9 ${
-          form.isRapidJob
-            ? "border-orange-500/40 shadow-[0_0_30px_rgba(255,107,53,0.15)]"
-            : "border-border"
-        }`}
+        className={`mt-8 overflow-hidden rounded-3xl border-2 bg-surface p-7 transition-all duration-300 lg:p-9 ${form.isRapidJob
+          ? "border-orange-500/40 shadow-[0_0_30px_rgba(255,107,53,0.15)]"
+          : "border-border"
+          }`}
       >
         <div
           key={step}
@@ -1070,11 +1061,10 @@ function PostJobPage() {
                           type="button"
                           onClick={() => set("category", c)}
                           aria-pressed={isSelected}
-                          className={`group relative overflow-hidden rounded-xl border-2 p-4 text-left transition-all duration-200 ${
-                            isSelected
-                              ? "border-primary bg-primary/10 shadow-md"
-                              : "border-border hover:border-primary/50 hover:shadow-sm"
-                          }`}
+                          className={`group relative overflow-hidden rounded-xl border-2 p-4 text-left transition-all duration-200 ${isSelected
+                            ? "border-primary bg-primary/10 shadow-md"
+                            : "border-border hover:border-primary/50 hover:shadow-sm"
+                            }`}
                         >
                           <div className="relative z-10">
                             <p
@@ -1118,11 +1108,10 @@ function PostJobPage() {
                           type="button"
                           aria-pressed={form.jobType === type}
                           onClick={() => set("jobType", type)}
-                          className={`rounded-xl border-2 px-4 py-2 text-sm font-semibold transition-all duration-150 hover:scale-[1.02] ${
-                            form.jobType === type
-                              ? "border-primary bg-primary/10 text-primary shadow-sm"
-                              : "border-border hover:border-primary/50"
-                          }`}
+                          className={`rounded-xl border-2 px-4 py-2 text-sm font-semibold transition-all duration-150 hover:scale-[1.02] ${form.jobType === type
+                            ? "border-primary bg-primary/10 text-primary shadow-sm"
+                            : "border-border hover:border-primary/50"
+                            }`}
                         >
                           {JOB_TYPE_LABELS[type as keyof typeof JOB_TYPE_LABELS]}
                         </button>
@@ -1445,11 +1434,10 @@ function PostJobPage() {
                               : [...form.facilities, label],
                           )
                         }
-                        className={`group flex items-center gap-2 rounded-full border-2 px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:scale-[1.02] ${
-                          isSelected
-                            ? "border-primary bg-primary text-primary-foreground shadow-md"
-                            : "border-border bg-background hover:border-primary/50"
-                        }`}
+                        className={`group flex items-center gap-2 rounded-full border-2 px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:scale-[1.02] ${isSelected
+                          ? "border-primary bg-primary text-primary-foreground shadow-md"
+                          : "border-border bg-background hover:border-primary/50"
+                          }`}
                       >
                         <Icon className="size-4" />
                         {label}
@@ -1463,33 +1451,33 @@ function PostJobPage() {
                 {form.facilities.filter(
                   (f) => !FACILITY_OPTIONS.some((o) => o.label === f),
                 ).length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {form.facilities
-                      .filter((f) => !FACILITY_OPTIONS.some((o) => o.label === f))
-                      .map((custom) => (
-                        <div
-                          key={custom}
-                          className="flex items-center gap-2 rounded-full border-2 border-gold bg-gold/10 px-4 py-2.5 text-sm font-medium text-gold-foreground"
-                        >
-                          <Sparkles className="size-4" />
-                          {custom}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              set(
-                                "facilities",
-                                form.facilities.filter((f) => f !== custom),
-                              )
-                            }
-                            className="rounded-full p-0.5 transition-colors hover:bg-gold/20"
-                            aria-label={`Remove ${custom}`}
+                    <div className="flex flex-wrap gap-2">
+                      {form.facilities
+                        .filter((f) => !FACILITY_OPTIONS.some((o) => o.label === f))
+                        .map((custom) => (
+                          <div
+                            key={custom}
+                            className="flex items-center gap-2 rounded-full border-2 border-gold bg-gold/10 px-4 py-2.5 text-sm font-medium text-gold-foreground"
                           >
-                            <X className="size-3.5" strokeWidth={3} />
-                          </button>
-                        </div>
-                      ))}
-                  </div>
-                )}
+                            <Sparkles className="size-4" />
+                            {custom}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                set(
+                                  "facilities",
+                                  form.facilities.filter((f) => f !== custom),
+                                )
+                              }
+                              className="rounded-full p-0.5 transition-colors hover:bg-gold/20"
+                              aria-label={`Remove ${custom}`}
+                            >
+                              <X className="size-3.5" strokeWidth={3} />
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
 
                 {/* Add custom */}
                 <div className="grid gap-2">
@@ -1802,11 +1790,10 @@ function PostJobPage() {
                 </p>
 
                 <article
-                  className={`flex flex-col rounded-2xl border p-6 shadow-md ${
-                    form.isRapidJob
-                      ? "border-orange-500/40 bg-gradient-to-br from-orange-500/5 to-card"
-                      : "border-border bg-card"
-                  }`}
+                  className={`flex flex-col rounded-2xl border p-6 shadow-md ${form.isRapidJob
+                    ? "border-orange-500/40 bg-gradient-to-br from-orange-500/5 to-card"
+                    : "border-border bg-card"
+                    }`}
                 >
                   {form.isRapidJob && (
                     <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -1858,10 +1845,10 @@ function PostJobPage() {
                     <CalendarDays className="size-4 shrink-0" />
                     {form.date
                       ? new Date(form.date + "T00:00").toLocaleDateString("en-IN", {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                        })
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                      })
                       : "Date TBD"}{" "}
                     · {form.startTime || "??"} – {form.endTime || "??"}
                     {shiftDuration ? ` · ${Math.floor(shiftDuration / 60)}h` : ""}
@@ -2014,11 +2001,10 @@ function PostJobPage() {
 
               {/* Publish info banner */}
               <div
-                className={`rounded-2xl border p-5 ${
-                  form.isRapidJob
-                    ? "border-orange-500/30 bg-orange-500/5"
-                    : "border-primary/20 bg-primary/5"
-                }`}
+                className={`rounded-2xl border p-5 ${form.isRapidJob
+                  ? "border-orange-500/30 bg-orange-500/5"
+                  : "border-primary/20 bg-primary/5"
+                  }`}
               >
                 <div className="flex items-start gap-3">
                   {form.isRapidJob ? (

@@ -1,23 +1,17 @@
 /**
  * Work Position Selection Screen
- *
  * Route: /work/$jobId/positions
  *
- * Cinema-seat-selection inspired UX adapted for work positions.
- * Workers browse categories, pick one position, then proceed to confirm.
+ * Cinema-seat-selection inspired UX — adapted uniquely for WORK POSITIONS.
+ * Workers browse categories via scrollable tabs, pick exactly ONE position,
+ * then proceed to /checkout.
  *
- * Data flow:
- *  1. fetchJobPositions() → loads categories + positions from Supabase
- *  2. subscribeToJobPositions() → Supabase Realtime updates position states
- *  3. handleSelect(positionId) → calls reserve_position RPC (AVAILABLE → PENDING)
- *  4. handleDeselect() → calls release_position RPC (PENDING → AVAILABLE)
- *  5. "Continue" → navigates to /checkout with reservationId
- *
- * Animation approach:
- *  - Pure CSS transitions + keyframes (already defined in styles.css)
- *  - data-state attributes drive selected/deselected transitions
- *  - No Framer Motion / extra bundle cost
- *  - Respects prefers-reduced-motion via existing tw-animate-css import
+ * Animations (pure CSS — no Framer Motion):
+ *  - pos-enter: staggered tile entrance per category switch
+ *  - available-glow: ambient pulse on available tiles
+ *  - bar-rise: bottom bar entrance when position selected
+ *  - panel-enter: category panel slide-in
+ *  - All respect prefers-reduced-motion (global CSS override in styles.css)
  */
 
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -25,7 +19,7 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
-  BadgeCheck,
+  Briefcase,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
@@ -33,9 +27,9 @@ import {
   Loader2,
   MapPin,
   RefreshCw,
+  Sparkles,
   Users,
   X,
-  Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -47,8 +41,10 @@ import {
   type CategoryPositionStats,
   type JobPositionStats,
   type PositionStatus,
+  type PositionSubscription,
   getJobPositionStats,
   subscribeToJobPositions,
+  broadcastPositionUpdate,
   releaseExpiredLocks,
 } from "@/lib/position-service";
 import { supabase } from "@/lib/supabase";
@@ -56,13 +52,16 @@ import { supabase } from "@/lib/supabase";
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/work/$jobId/positions")({
+  validateSearch: (search: Record<string, unknown>): { cat?: string } => ({
+    cat: typeof search.cat === "string" ? search.cat : undefined,
+  }),
   head: () => ({
     meta: [
-      { title: "Select Position — QuickWork" },
+      { title: "Select Work Position — QuickWork" },
       {
         name: "description",
         content:
-          "Pick your work position for this shift. One position per worker.",
+          "Pick your work position for this shift. One position per worker. Live availability updates.",
       },
     ],
   }),
@@ -93,7 +92,7 @@ interface Selection {
   lockExpiresAt: string | null;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Date / time helpers ──────────────────────────────────────────────────────
 
 const TODAY_ISO = new Date().toISOString().split("T")[0]!;
 const TOMORROW_ISO = (() => {
@@ -115,11 +114,7 @@ function formatDateLabel(isoDate: string, start: string, end: string): string {
   else if (isoDate === TOMORROW_ISO) day = "Tomorrow";
   else {
     const d = new Date(isoDate + "T00:00");
-    day = d.toLocaleDateString("en-IN", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    });
+    day = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   }
   return `${day} · ${fmt12(start)} – ${fmt12(end)}`;
 }
@@ -129,7 +124,7 @@ function posLabel(n: number, total: number): string {
   return String(n).padStart(digits, "0");
 }
 
-// ─── Mock data (graceful fallback) ────────────────────────────────────────────
+// ─── Mock data (graceful fallback when Supabase not connected) ────────────────
 
 function makeMockStats(jobId: string): JobPositionStats {
   const cats: CategoryPositionStats[] = [
@@ -138,16 +133,16 @@ function makeMockStats(jobId: string): JobPositionStats {
       category_name: "Food Serving",
       required_workers: 5,
       total: 5,
-      available: 3,
+      available: 5,
       pending: 0,
       pending_live: 0,
       pending_expired: 0,
-      booked: 2,
+      booked: 0,
       cancelled: 0,
       active: 5,
       positions: [
-        { id: "p1", position_number: 1, status: "BOOKED",    locked_until: null },
-        { id: "p2", position_number: 2, status: "BOOKED",    locked_until: null },
+        { id: "p1", position_number: 1, status: "AVAILABLE", locked_until: null },
+        { id: "p2", position_number: 2, status: "AVAILABLE", locked_until: null },
         { id: "p3", position_number: 3, status: "AVAILABLE", locked_until: null },
         { id: "p4", position_number: 4, status: "AVAILABLE", locked_until: null },
         { id: "p5", position_number: 5, status: "AVAILABLE", locked_until: null },
@@ -156,37 +151,38 @@ function makeMockStats(jobId: string): JobPositionStats {
     {
       category_id: "cat-2",
       category_name: "Liquor Serving",
-      required_workers: 3,
-      total: 3,
-      available: 1,
+      required_workers: 4,
+      total: 4,
+      available: 3,
       pending: 1,
       pending_live: 1,
       pending_expired: 0,
-      booked: 2,
+      booked: 0,
       cancelled: 0,
-      active: 3,
+      active: 4,
       positions: [
-        { id: "p6", position_number: 1, status: "BOOKED",    locked_until: null },
-        { id: "p7", position_number: 2, status: "BOOKED",    locked_until: null },
-        { id: "p8", position_number: 3, status: "PENDING",   locked_until: new Date(Date.now() + 90000).toISOString() },
-        // Note: available=1 means there's an available position we add below
+        { id: "p6", position_number: 1, status: "AVAILABLE", locked_until: null },
+        { id: "p7", position_number: 2, status: "AVAILABLE", locked_until: null },
+        { id: "p8", position_number: 3, status: "PENDING",   locked_until: new Date(Date.now() + 90_000).toISOString() },
+        { id: "p9", position_number: 4, status: "AVAILABLE", locked_until: null },
       ],
     },
     {
       category_id: "cat-3",
       category_name: "Starters Serving",
-      required_workers: 2,
-      total: 2,
-      available: 2,
+      required_workers: 3,
+      total: 3,
+      available: 3,
       pending: 0,
       pending_live: 0,
       pending_expired: 0,
       booked: 0,
       cancelled: 0,
-      active: 2,
+      active: 3,
       positions: [
-        { id: "p9",  position_number: 1, status: "AVAILABLE", locked_until: null },
-        { id: "p10", position_number: 2, status: "AVAILABLE", locked_until: null },
+        { id: "p10", position_number: 1, status: "AVAILABLE", locked_until: null },
+        { id: "p11", position_number: 2, status: "AVAILABLE", locked_until: null },
+        { id: "p12", position_number: 3, status: "AVAILABLE", locked_until: null },
       ],
     },
     {
@@ -202,43 +198,51 @@ function makeMockStats(jobId: string): JobPositionStats {
       cancelled: 0,
       active: 2,
       positions: [
-        { id: "p11", position_number: 1, status: "AVAILABLE", locked_until: null },
-        { id: "p12", position_number: 2, status: "AVAILABLE", locked_until: null },
+        { id: "p13", position_number: 1, status: "AVAILABLE", locked_until: null },
+        { id: "p14", position_number: 2, status: "AVAILABLE", locked_until: null },
       ],
     },
   ];
-
   return {
     job_id: jobId,
-    total: 12,
-    available: 8,
+    total: 14,
+    available: 13,
     pending: 1,
-    booked: 3,
+    booked: 0,
     cancelled: 0,
-    active: 12,
+    active: 14,
     categories: cats,
   };
 }
 
-const MOCK_JOB_META: JobMeta = {
-  jobTitle: "Wedding Event Staff — Grand Sapphire Banquets",
-  venueName: "Grand Sapphire Banquets",
-  area: "Gachibowli",
-  city: "Hyderabad",
-  jobDate: TODAY_ISO,
-  startTime: "19:00",
-  endTime: "23:30",
-  isRapidJob: true,
-  rapidJobExpiresAt: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
-  status: "Open",
-};
+function buildMockJobMeta(): JobMeta {
+  const now = Date.now();
+  const start = new Date(now + (47 * 60 + 32) * 1000);
+  const startStr = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
+  const end = new Date(now + (47 * 60 + 32 + 4 * 3600) * 1000);
+  const endStr = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
 
-// mock wage map — real data comes from job_categories
+  return {
+    jobTitle: "Banquet Server",
+    venueName: "Grand Sapphire Banquets",
+    area: "Gachibowli",
+    city: "Hyderabad",
+    jobDate: TODAY_ISO,
+    startTime: startStr,
+    endTime: endStr,
+    isRapidJob: true,
+    rapidJobExpiresAt: start.toISOString(),
+    status: "Open",
+  };
+}
+
+const MOCK_JOB_META: JobMeta = buildMockJobMeta();
+
 const MOCK_WAGES: Record<string, number> = {
-  "cat-1": 1200,
-  "cat-2": 1400,
-  "cat-3": 1200,
-  "cat-4": 1100,
+  "cat-1": 1500,
+  "cat-2": 1500,
+  "cat-3": 1500,
+  "cat-4": 1500,
 };
 
 // ─── RPC wrappers ─────────────────────────────────────────────────────────────
@@ -255,7 +259,8 @@ async function rpcReservePosition(
   if (error) return { ok: false, lockExpiresAt: null, error: error.message };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = data as any;
-  if (!d?.success) return { ok: false, lockExpiresAt: null, error: d?.error ?? "reserve_failed" };
+  if (!d?.success)
+    return { ok: false, lockExpiresAt: null, error: d?.error ?? "reserve_failed" };
   return { ok: true, lockExpiresAt: d.lock_expires_at ?? null, error: null };
 }
 
@@ -275,7 +280,35 @@ async function rpcReleasePosition(
   return { ok: true, error: null };
 }
 
-// ─── Position tile ────────────────────────────────────────────────────────────
+// ─── Lock countdown ───────────────────────────────────────────────────────────
+
+function LockCountdown({ expiresAt }: { expiresAt: string }) {
+  const [secs, setSecs] = useState(() =>
+    Math.max(0, Math.round((new Date(expiresAt).getTime() - Date.now()) / 1000)),
+  );
+
+  useEffect(() => {
+    if (secs <= 0) return;
+    const id = setInterval(() => setSecs((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [secs]);
+
+  const mins = Math.floor(secs / 60);
+  const s = secs % 60;
+  const isUrgent = secs <= 30;
+
+  return (
+    <span
+      className={`font-display font-bold tabular-nums text-sm ${
+        isUrgent ? "text-destructive animate-pulse" : "text-primary"
+      }`}
+    >
+      {mins}:{String(s).padStart(2, "0")}
+    </span>
+  );
+}
+
+// ─── Position Tile ────────────────────────────────────────────────────────────
 
 type TileVariant = "available" | "selected" | "pending" | "booked";
 
@@ -286,17 +319,6 @@ function tileVariant(status: PositionStatus, isSelected: boolean): TileVariant {
   return "booked";
 }
 
-const TILE_STYLES: Record<TileVariant, string> = {
-  available:
-    "border-success/60 bg-success/8 text-success hover:border-success hover:bg-success/15 hover:scale-[1.06] hover:shadow-[0_0_14px_color-mix(in_oklab,var(--color-success)_30%,transparent)] cursor-pointer active:scale-[0.97]",
-  selected:
-    "border-primary bg-primary text-primary-foreground shadow-brand scale-[1.06] ring-4 ring-primary/30 cursor-pointer",
-  pending:
-    "border-gold/60 bg-gold/10 text-gold-foreground cursor-not-allowed opacity-80",
-  booked:
-    "border-border bg-muted/50 text-muted-foreground/50 cursor-not-allowed",
-};
-
 function PositionTile({
   positionId,
   positionNumber,
@@ -304,7 +326,7 @@ function PositionTile({
   isSelected,
   totalInCategory,
   onClick,
-  isAnimatingIn,
+  enterDelay,
 }: {
   positionId: string;
   positionNumber: number;
@@ -312,7 +334,7 @@ function PositionTile({
   isSelected: boolean;
   totalInCategory: number;
   onClick: (id: string) => void;
-  isAnimatingIn: boolean;
+  enterDelay: number;
 }) {
   const variant = tileVariant(status, isSelected);
   const isInteractable = variant === "available" || variant === "selected";
@@ -327,104 +349,112 @@ function PositionTile({
       aria-disabled={!isInteractable}
       disabled={!isInteractable}
       onClick={() => isInteractable && onClick(positionId)}
+      style={{ animationDelay: `${enterDelay}ms`, animationFillMode: "both" }}
       className={[
-        // base
-        "relative flex flex-col items-center justify-center rounded-2xl border-2 transition-all duration-200 select-none",
-        // size
-        "h-[72px] w-full sm:h-[80px]",
-        // variant
-        TILE_STYLES[variant],
-        // entrance animation
-        isAnimatingIn ? "animate-bounce-in" : "",
+        "relative flex flex-col items-center justify-center rounded-2xl border-2 select-none",
+        "h-[80px] w-full sm:h-[88px]",
+        "animate-[pos-enter_0.35s_cubic-bezier(0.22,1,0.36,1)_both]",
+        "transition-[transform,box-shadow,background-color,border-color] duration-200 ease-out",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        variant === "available" &&
+          "border-success/50 bg-success/[0.06] text-success cursor-pointer " +
+          "hover:border-success hover:bg-success/[0.12] hover:scale-[1.05] " +
+          "hover:shadow-[0_0_18px_color-mix(in_oklab,var(--color-success)_28%,transparent)] " +
+          "active:scale-[0.98]",
+        variant === "selected" &&
+          "border-primary bg-primary text-primary-foreground cursor-pointer " +
+          "scale-[1.05] shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_25%,transparent),0_4px_20px_color-mix(in_oklab,var(--color-primary)_30%,transparent)]",
+        variant === "pending" &&
+          "border-gold/50 bg-gold/[0.08] text-gold-foreground cursor-not-allowed opacity-80",
+        variant === "booked" &&
+          "border-border/40 bg-muted/30 text-muted-foreground/40 cursor-not-allowed",
       ]
         .filter(Boolean)
         .join(" ")}
     >
       {/* Position number */}
-      <span className="font-display text-lg font-bold leading-none">{label}</span>
+      <span className="font-display text-xl font-bold leading-none tracking-tight">
+        {label}
+      </span>
 
-      {/* Status indicator */}
+      {/* Status sublabel */}
       <span
-        className={`mt-1 text-[10px] font-bold uppercase tracking-widest ${
+        className={`mt-1.5 text-[9px] font-bold uppercase tracking-[0.15em] ${
           variant === "selected"
-            ? "text-primary-foreground/80"
+            ? "text-primary-foreground/75"
             : variant === "available"
-              ? "text-success/70"
+              ? "text-success/65"
               : variant === "pending"
-                ? "text-gold-foreground/70"
-                : "text-muted-foreground/40"
+                ? "text-gold-foreground/65"
+                : "text-muted-foreground/35"
         }`}
       >
         {variant === "selected"
           ? "Selected"
           : variant === "pending"
-            ? "On hold"
+            ? "On Hold"
             : variant === "booked"
-              ? "Filled"
-              : "Open"}
+              ? "Booked"
+              : "Available"}
       </span>
 
-      {/* Check icon when selected */}
+      {/* Selected check badge */}
       {isSelected && (
-        <div className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-primary-foreground shadow-sm">
-          <CheckCircle2
-            className="size-4 text-primary"
-            strokeWidth={3}
-            aria-hidden="true"
-          />
+        <div className="absolute -right-1.5 -top-1.5 flex size-[22px] items-center justify-center rounded-full bg-primary-foreground shadow-md">
+          <CheckCircle2 className="size-[14px] text-primary" strokeWidth={3} aria-hidden="true" />
         </div>
       )}
 
-      {/* Pending lock indicator */}
+      {/* Pending live dot */}
       {variant === "pending" && (
-        <div className="absolute -right-1 -top-1 size-2.5 rounded-full bg-gold animate-pulse" />
+        <span className="absolute -right-1 -top-1 size-2.5 rounded-full bg-gold animate-pulse" />
       )}
     </button>
   );
 }
 
-// ─── Category tab ─────────────────────────────────────────────────────────────
+// ─── Category Tab ─────────────────────────────────────────────────────────────
 
 function CategoryTab({
   cat,
   isActive,
-  selectedCategoryId,
+  hasSelection,
   onClick,
 }: {
   cat: CategoryPositionStats;
   isActive: boolean;
-  selectedCategoryId: string | null;
+  hasSelection: boolean;
   onClick: () => void;
 }) {
-  const hasSelection = selectedCategoryId === cat.category_id;
-  const isFull = cat.available === 0 && cat.booked === cat.required_workers;
+  const isFull = cat.available === 0;
+  const isLow = cat.available > 0 && cat.available <= 2;
 
   return (
     <button
       type="button"
       id={`cat-tab-${cat.category_id}`}
-      aria-selected={isActive}
       role="tab"
+      aria-selected={isActive}
       onClick={onClick}
       className={[
-        "relative shrink-0 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200",
+        "relative shrink-0 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold",
+        "transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isActive
           ? "bg-primary text-primary-foreground shadow-brand"
-          : "border border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
+          : "border border-border bg-card/80 text-muted-foreground hover:border-primary/30 hover:text-foreground hover:bg-card",
       ].join(" ")}
     >
       {hasSelection && !isActive && (
-        <span className="size-2 rounded-full bg-primary animate-pulse" />
+        <span className="size-2 rounded-full bg-primary animate-pulse flex-shrink-0" />
       )}
       <span>{cat.category_name}</span>
-      {/* availability count */}
       <span
-        className={`rounded-lg px-1.5 py-0.5 text-xs font-bold ${
+        className={`rounded-lg px-1.5 py-0.5 text-[11px] font-bold ${
           isActive
             ? "bg-primary-foreground/20 text-primary-foreground"
             : isFull
               ? "bg-muted text-muted-foreground"
-              : cat.available <= 2
+              : isLow
                 ? "bg-orange-500/15 text-orange-600 dark:text-orange-400"
                 : "bg-success/15 text-success"
         }`}
@@ -435,80 +465,54 @@ function CategoryTab({
   );
 }
 
-// ─── Lock countdown ───────────────────────────────────────────────────────────
+// ─── Booking Legend ───────────────────────────────────────────────────────────
 
-function LockCountdown({ expiresAt }: { expiresAt: string }) {
-  const [secs, setSecs] = useState(() => {
-    const diff = Math.max(
-      0,
-      Math.round((new Date(expiresAt).getTime() - Date.now()) / 1000),
-    );
-    return diff;
-  });
-
-  useEffect(() => {
-    if (secs <= 0) return;
-    const id = setInterval(() => {
-      setSecs((s) => Math.max(0, s - 1));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [secs]);
-
-  const mins = Math.floor(secs / 60);
-  const s = secs % 60;
-  const label = `${mins}:${String(s).padStart(2, "0")}`;
-  const isUrgent = secs <= 30;
-
-  return (
-    <span
-      className={`font-display font-bold tabular-nums ${
-        isUrgent ? "text-destructive animate-pulse" : "text-primary"
-      }`}
-    >
-      {label}
-    </span>
-  );
-}
-
-// ─── Legend ───────────────────────────────────────────────────────────────────
-
-function Legend() {
-  const items: { variant: TileVariant; label: string; desc: string }[] = [
-    { variant: "available", label: "Available",  desc: "Open for booking" },
-    { variant: "selected",  label: "Selected",   desc: "Your pick" },
-    { variant: "pending",   label: "On Hold",    desc: "Reserved — 2 min" },
-    { variant: "booked",    label: "Filled",     desc: "Already booked" },
+function BookingLegend() {
+  const items: { variant: TileVariant; label: string }[] = [
+    { variant: "available", label: "Available" },
+    { variant: "selected",  label: "Selected"  },
+    { variant: "pending",   label: "On Hold"   },
+    { variant: "booked",    label: "Booked"    },
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-      {items.map(({ variant, label, desc }) => (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
+      {items.map(({ variant, label }) => (
         <div key={variant} className="flex items-center gap-2">
           <div
             aria-hidden="true"
-            className={`h-5 w-7 rounded-md border-2 text-[9px] font-bold ${
+            className={`relative h-[18px] w-7 rounded-md border-2 ${
               variant === "available"
-                ? "border-success/60 bg-success/10"
+                ? "border-success/55 bg-success/[0.08]"
                 : variant === "selected"
                   ? "border-primary bg-primary"
                   : variant === "pending"
-                    ? "border-gold/60 bg-gold/10"
-                    : "border-border bg-muted/50"
+                    ? "border-gold/55 bg-gold/[0.08]"
+                    : "border-border/40 bg-muted/30"
             }`}
-          />
-          <span className="text-xs text-muted-foreground">
-            <strong className="text-foreground">{label}</strong> — {desc}
-          </span>
+          >
+            {variant === "pending" && (
+              <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-gold" />
+            )}
+            {variant === "selected" && (
+              <span className="absolute -right-0.5 -top-0.5 flex size-[10px] items-center justify-center rounded-full bg-primary-foreground">
+                <CheckCircle2 className="size-[6px] text-primary" strokeWidth={3} />
+              </span>
+            )}
+          </div>
+          <span className="text-xs font-medium text-muted-foreground">{label}</span>
         </div>
       ))}
     </div>
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 function PositionSelectionPage() {
   const { jobId } = Route.useParams();
+  const searchParams = Route.useSearch();
+  const requestedCatId = searchParams?.cat;
   const navigate = useNavigate();
   const { isLoggedIn, openLoginModal, user } = useAuth();
 
@@ -519,26 +523,39 @@ function PositionSelectionPage() {
   const [stats, setStats] = useState<JobPositionStats | null>(null);
   const [wages, setWages] = useState<Record<string, number>>({});
   const [dataError, setDataError] = useState<string | null>(null);
+  const [isRapidCutoff, setIsRapidCutoff] = useState(false);
 
   // UI state
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
-  const [lostPositionId, setLostPositionId] = useState<string | null>(null);
+  const [lostPosition, setLostPosition] = useState<{
+    id: string;
+    categoryName: string;
+    positionNumber: number;
+  } | null>(null);
   const [reserving, setReserving] = useState(false);
   const [releasing, setReleasing] = useState(false);
-  const [categoryAnimKey, setCategoryAnimKey] = useState(0);
+  // Bumped on every category switch — remounts grid and replays entrance animations
+  const [panelKey, setPanelKey] = useState(0);
 
   const tabsRef = useRef<HTMLDivElement>(null);
   const currentWorkerId = user?.id ?? null;
 
-  // ── Load job meta ────────────────────────────────────────────────────────
+  // Refs for real-time subscription callback to prevent re-subscribing on state change (memory leak prevention)
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
+  const statsRef = useRef(stats);
+  statsRef.current = stats;
+  const currentWorkerIdRef = useRef(currentWorkerId);
+  currentWorkerIdRef.current = currentWorkerId;
+
+  // ── Load job meta ──────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       setLoading(true);
 
-      // Fetch job meta
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: jobRow, error: jobError } = await (supabase as any)
         .from("jobs")
@@ -551,11 +568,15 @@ function PositionSelectionPage() {
       if (cancelled) return;
 
       if (jobError || !jobRow) {
-        // Use mock
+        const mockStats = makeMockStats(jobId);
+        const chosenCat =
+          requestedCatId && mockStats.categories.some((c) => c.category_id === requestedCatId)
+            ? requestedCatId
+            : "cat-1";
         setJobMeta(MOCK_JOB_META);
         setWages(MOCK_WAGES);
-        setStats(makeMockStats(jobId));
-        setActiveCategoryId("cat-1");
+        setStats(mockStats);
+        setActiveCategoryId(chosenCat);
         setIsMock(true);
         setLoading(false);
         return;
@@ -576,8 +597,6 @@ function PositionSelectionPage() {
         status: r.status,
       });
 
-      // Build wage map
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const wageMap: Record<string, number> = {};
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const cat of (r.job_categories ?? []) as any[]) {
@@ -585,10 +604,8 @@ function PositionSelectionPage() {
       }
       setWages(wageMap);
 
-      // Release expired locks before loading stats
       await releaseExpiredLocks();
 
-      // Load position stats
       const statsResult = await getJobPositionStats(jobId);
       if (cancelled) return;
 
@@ -600,7 +617,12 @@ function PositionSelectionPage() {
 
       setStats(statsResult.data);
       if (statsResult.data.categories.length > 0) {
-        setActiveCategoryId(statsResult.data.categories[0]!.category_id);
+        const matchingCat =
+          requestedCatId &&
+          statsResult.data.categories.some((c) => c.category_id === requestedCatId);
+        setActiveCategoryId(
+          matchingCat ? requestedCatId : statsResult.data.categories[0]!.category_id,
+        );
       }
       setIsMock(false);
       setLoading(false);
@@ -608,52 +630,124 @@ function PositionSelectionPage() {
 
     load();
     return () => { cancelled = true; };
-  }, [jobId]);
+  }, [jobId, requestedCatId]);
 
-  // ── Realtime subscription ────────────────────────────────────────────────
+  // ── Supabase Realtime ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (!stats || isMock) return;
+    if (!jobId) return;
 
-    const channel = subscribeToJobPositions(jobId, ({ eventType, newRow, oldRow: _oldRow }) => {
-      if (eventType === "UPDATE" && newRow) {
-        const posId = newRow["id"] as string;
-        const newStatus = newRow["status"] as PositionStatus;
-        const newLock = newRow["lock_expires_at"] as string | null;
-        const newWorkerId = newRow["worker_id"] as string | null;
+    const sub = subscribeToJobPositions(jobId, ({ newRow }) => {
+      if (!newRow) return;
 
-        setStats((prev) => {
-          if (!prev) return prev;
+      const posId = (newRow["id"] as string) || "";
+      const newStatus = (newRow["status"] as PositionStatus) || "BOOKED";
+      const newLock = (newRow["lock_expires_at"] as string | null) ?? null;
+      const newWorkerId = (newRow["worker_id"] as string | null) ?? null;
+      const posNum = typeof newRow["position_number"] === "number" ? newRow["position_number"] : null;
+      const catId = (newRow["category_id"] as string | null) ?? null;
+
+      // 1. Update position state and live counts without requiring full page refresh
+      setStats((prev) => {
+        if (!prev) return prev;
+        let changed = false;
+
+        const updatedCategories = prev.categories.map((cat) => {
+          const matchesCategory = !catId || cat.category_id === catId;
+          const targetPos = cat.positions.find(
+            (p) => p.id === posId || (posNum != null && p.position_number === posNum && matchesCategory),
+          );
+          if (!targetPos) return cat;
+
+          changed = true;
+          const updatedPositions = cat.positions.map((p) => {
+            const isMatch = p.id === posId || (posNum != null && p.position_number === posNum && matchesCategory);
+            if (!isMatch) return p;
+            return {
+              ...p,
+              status: newStatus,
+              locked_until: newLock,
+            };
+          });
+
           return {
-            ...prev,
-            categories: prev.categories.map((cat) => ({
-              ...cat,
-              positions: cat.positions.map((p) =>
-                p.id === posId ? { ...p, status: newStatus, locked_until: newLock } : p,
-              ),
-            })),
+            ...cat,
+            positions: updatedPositions,
+            available: updatedPositions.filter((p) => p.status === "AVAILABLE").length,
+            pending: updatedPositions.filter((p) => p.status === "PENDING").length,
+            booked: updatedPositions.filter((p) => p.status === "BOOKED").length,
           };
         });
 
-        // If the position this worker selected was taken by someone else
-        if (
-          selection?.positionId === posId &&
-          (newStatus === "BOOKED" || (newStatus === "PENDING" && newWorkerId !== currentWorkerId))
-        ) {
-          setLostPositionId(posId);
-          setSelection(null);
-          toast.warning("Position taken", {
-            description: "Another worker just booked this position. Please choose another.",
-            duration: 5000,
-          });
+        if (!changed) return prev;
+
+        return {
+          ...prev,
+          categories: updatedCategories,
+          available: updatedCategories.reduce((s, c) => s + c.available, 0),
+          pending: updatedCategories.reduce((s, c) => s + c.pending, 0),
+          booked: updatedCategories.reduce((s, c) => s + c.booked, 0),
+        };
+      });
+
+      // 2. Check if this worker had selected the position that was just booked/reserved
+      const activeSelection = selectionRef.current;
+      const myWorkerId = currentWorkerIdRef.current;
+
+      if (activeSelection) {
+        const isMyPos =
+          activeSelection.positionId === posId ||
+          (posNum != null && activeSelection.positionNumber === posNum && (!catId || activeSelection.categoryId === catId));
+
+        if (isMyPos) {
+          const isBooked = newStatus === "BOOKED";
+          const isPendingByOther = newStatus === "PENDING" && newWorkerId && newWorkerId !== myWorkerId;
+
+          if (isBooked || isPendingByOther) {
+            // Automatically clear the selection
+            setSelection(null);
+
+            // Format position label with leading zero (e.g. "Position 03")
+            const formattedNum = String(activeSelection.positionNumber).padStart(2, "0");
+            const alertMsg = `Position ${formattedNum} was just booked by another worker.`;
+
+            setLostPosition({
+              id: activeSelection.positionId,
+              categoryName: activeSelection.categoryName,
+              positionNumber: activeSelection.positionNumber,
+            });
+
+            toast.warning(alertMsg, {
+              duration: 6000,
+            });
+          }
         }
       }
     });
 
-    return () => { channel.unsubscribe(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId, stats, isMock]);
+    return () => {
+      sub.unsubscribe();
+    };
+  }, [jobId]);
 
-  // ── Tab scroll to active ──────────────────────────────────────────────────
+  // Simulation hook for multi-tab testing
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    (window as any).__simulateWorkerBooking = (targetPositionNumber = 3, catId = "cat-1") => {
+      broadcastPositionUpdate(jobId, {
+        id: `p${targetPositionNumber}`,
+        job_id: jobId,
+        status: "BOOKED",
+        position_number: targetPositionNumber,
+        category_id: catId,
+        worker_id: "worker_other_tab",
+      });
+    };
+    return () => {
+      delete (window as any).__simulateWorkerBooking;
+    };
+  }, [jobId]);
+
+  // ── Scroll active tab into view ────────────────────────────────────────────
   useEffect(() => {
     if (!activeCategoryId || !tabsRef.current) return;
     const btn = tabsRef.current.querySelector<HTMLElement>(
@@ -662,50 +756,68 @@ function PositionSelectionPage() {
     btn?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
   }, [activeCategoryId]);
 
-  // ── Handle position click ─────────────────────────────────────────────────
+  // ── Position click ─────────────────────────────────────────────────────────
   const handlePositionClick = useCallback(
     async (positionId: string) => {
-      if (!isLoggedIn) {
+      if (isRapidCutoff) {
+        toast.error("Applications closed", {
+          description: "Shift cutoff has passed for this Rapid Job.",
+        });
+        return;
+      }
+      if (!isLoggedIn && !isMock) {
         openLoginModal({ type: "book-shift", payload: jobId });
         return;
       }
-      if (!currentWorkerId || !stats) return;
+      const effectiveWorkerId = currentWorkerId ?? "worker_demo";
+      if (!stats) return;
 
       const activeCategory = stats.categories.find(
         (c) => c.category_id === activeCategoryId,
       );
       if (!activeCategory) return;
 
-      const clickedPosition = activeCategory.positions.find(
-        (p) => p.id === positionId,
-      );
+      const clickedPosition = activeCategory.positions.find((p) => p.id === positionId);
       if (!clickedPosition) return;
 
-      // Deselect
+      // Deselect same position
       if (selection?.positionId === positionId) {
         setReleasing(true);
-        if (!isMock) {
-          await rpcReleasePosition(positionId, currentWorkerId);
-        }
+        if (!isMock) await rpcReleasePosition(positionId, effectiveWorkerId);
+        broadcastPositionUpdate(jobId, {
+          id: positionId,
+          job_id: jobId,
+          status: "AVAILABLE",
+          position_number: clickedPosition.position_number,
+          category_id: activeCategoryId!,
+          worker_id: null,
+        });
         setSelection(null);
         setReleasing(false);
         return;
       }
 
-      // Release existing selection first
-      if (selection && !isMock) {
-        await rpcReleasePosition(selection.positionId, currentWorkerId);
-      }
+      // Release previous lock before acquiring new one
       if (selection) {
-        setSelection(null);
+        if (!isMock) {
+          await rpcReleasePosition(selection.positionId, effectiveWorkerId);
+        }
+        broadcastPositionUpdate(jobId, {
+          id: selection.positionId,
+          job_id: jobId,
+          status: "AVAILABLE",
+          position_number: selection.positionNumber,
+          category_id: selection.categoryId,
+          worker_id: null,
+        });
       }
+      setSelection(null);
 
-      // Reserve new position
       setReserving(true);
       let lockExpiresAt: string | null = null;
 
       if (!isMock) {
-        const result = await rpcReservePosition(positionId, currentWorkerId);
+        const result = await rpcReservePosition(positionId, effectiveWorkerId);
         if (!result.ok) {
           setReserving(false);
           const friendlyErrors: Record<string, string> = {
@@ -718,15 +830,13 @@ function PositionSelectionPage() {
           toast.error("Cannot select position", {
             description: friendlyErrors[result.error ?? ""] ?? result.error ?? "Please try again.",
           });
-          // Refresh stats to sync UI
           const refreshed = await getJobPositionStats(jobId);
           if (refreshed.ok) setStats(refreshed.data);
           return;
         }
         lockExpiresAt = result.lockExpiresAt;
       } else {
-        // Mock: just accept
-        lockExpiresAt = new Date(Date.now() + 120000).toISOString();
+        lockExpiresAt = new Date(Date.now() + 120_000).toISOString();
       }
 
       setSelection({
@@ -738,7 +848,17 @@ function PositionSelectionPage() {
         lockExpiresAt,
       });
 
-      // Optimistically update local state
+      broadcastPositionUpdate(jobId, {
+        id: positionId,
+        job_id: jobId,
+        status: "PENDING",
+        position_number: clickedPosition.position_number,
+        category_id: activeCategoryId!,
+        worker_id: effectiveWorkerId,
+        lock_expires_at: lockExpiresAt,
+      });
+
+      // Optimistic update in mock mode
       if (isMock) {
         setStats((prev) => {
           if (!prev) return prev;
@@ -747,46 +867,37 @@ function PositionSelectionPage() {
             categories: prev.categories.map((cat) => ({
               ...cat,
               positions: cat.positions.map((p) =>
-                p.id === positionId ? { ...p, status: "PENDING" as PositionStatus } : p,
-              ),
-            })),
-          };
-        });
+                p.id === positionId
+                  ? { ...p, status: "PENDING" as PositionStatus }
+                  : p,
+            ),
+          })),
+        };
+      });
       }
 
       setReserving(false);
-      setLostPositionId(null);
+      setLostPosition(null);
     },
-    [
-      isLoggedIn,
-      openLoginModal,
-      jobId,
-      currentWorkerId,
-      stats,
-      activeCategoryId,
-      selection,
-      isMock,
-      wages,
-    ],
+    [isLoggedIn, isMock, isRapidCutoff, openLoginModal, jobId, currentWorkerId, stats, activeCategoryId, selection, wages],
   );
 
-  // ── Handle category switch ────────────────────────────────────────────────
+  // ── Category switch ────────────────────────────────────────────────────────
   const handleCategoryChange = (catId: string) => {
     setActiveCategoryId(catId);
-    setCategoryAnimKey((k) => k + 1);
-    setLostPositionId(null);
+    setPanelKey((k) => k + 1);
+    setLostPosition(null);
   };
 
-  // ── Handle continue ──────────────────────────────────────────────────────
+  // ── Continue ───────────────────────────────────────────────────────────────
   const handleContinue = () => {
     if (!selection) return;
-    if (isMock) {
-      toast.info("Preview mode", {
-        description: "Connect Supabase to complete real bookings.",
+    if (isRapidCutoff) {
+      toast.error("Applications closed", {
+        description: "Shift cutoff has passed for this Rapid Job.",
       });
       return;
     }
-    // Pass booking intent via sessionStorage (same-tab, no sensitive data persisted)
     sessionStorage.setItem(
       "qw_pending_booking",
       JSON.stringify({
@@ -798,30 +909,30 @@ function PositionSelectionPage() {
         lockExpiresAt: selection.lockExpiresAt,
         jobId,
         jobTitle: jobMeta?.jobTitle,
+        jobDate: jobMeta?.jobDate,
+        startTime: jobMeta?.startTime,
+        endTime: jobMeta?.endTime,
+        area: jobMeta?.area,
+        city: jobMeta?.city,
+        venueName: jobMeta?.venueName,
+        isRapidJob: jobMeta?.isRapidJob,
+        rapidJobExpiresAt: jobMeta?.rapidJobExpiresAt,
       }),
     );
-    void navigate({ to: "/checkout" });
+    void navigate({ to: "/apply/review" });
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Loading skeleton ───────────────────────────────────────────────────────
+  if (loading) return <PositionSelectionSkeleton />;
 
-  if (loading) {
-    return <PositionSelectionSkeleton />;
-  }
-
+  // ── Error state ────────────────────────────────────────────────────────────
   if (dataError) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center">
         <AlertCircle className="mx-auto size-12 text-destructive/60" />
         <h2 className="mt-4 text-xl font-bold">Could not load positions</h2>
         <p className="mt-2 text-sm text-muted-foreground">{dataError}</p>
-        <Button
-          variant="outline"
-          className="mt-6"
-          onClick={() => window.location.reload()}
-        >
+        <Button variant="outline" className="mt-6" onClick={() => window.location.reload()}>
           <RefreshCw className="size-4" />
           Retry
         </Button>
@@ -831,25 +942,22 @@ function PositionSelectionPage() {
 
   if (!stats || !jobMeta) return null;
 
-  const activeCategory = stats.categories.find(
-    (c) => c.category_id === activeCategoryId,
-  );
-
+  const activeCategory = stats.categories.find((c) => c.category_id === activeCategoryId);
   const totalAvailable = stats.available;
   const isJobFull = totalAvailable === 0;
   const isJobClosed = ["FullyFilled", "Completed", "Cancelled"].includes(jobMeta.status);
 
   return (
-    <div className="min-h-screen pb-44 lg:pb-32">
+    <div className="min-h-screen pb-44 lg:pb-36">
 
-      {/* ── Topbar ──────────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 border-b border-border bg-surface/95 backdrop-blur-sm">
+      {/* ── Sticky top nav ──────────────────────────────────────────────── */}
+      <div className="sticky top-0 z-20 border-b border-border bg-surface/95 backdrop-blur-md">
         <div className="mx-auto max-w-4xl px-4 py-3 lg:px-8">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
               <Link to="/work/$jobId" params={{ jobId }}>
                 <ArrowLeft className="size-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Back to details</span>
+                <span className="hidden sm:inline text-sm">Back to details</span>
               </Link>
             </Button>
             <div className="hidden h-4 w-px bg-border sm:block" />
@@ -860,103 +968,114 @@ function PositionSelectionPage() {
         </div>
       </div>
 
-      {/* ── Job header ──────────────────────────────────────────────────────── */}
+      {/* ── Job header ──────────────────────────────────────────────────── */}
       <div
         className={`animate-rise border-b border-border ${
-          jobMeta.isRapidJob ? "bg-gradient-to-br from-orange-500/10 to-transparent" : "bg-surface"
+          jobMeta.isRapidJob
+            ? "bg-gradient-to-br from-orange-500/8 via-transparent to-transparent"
+            : "bg-surface"
         }`}
         style={{ animationFillMode: "both" }}
       >
         <div className="mx-auto max-w-4xl px-4 py-6 lg:px-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              {/* Rapid badge */}
+            <div className="min-w-0">
               {jobMeta.isRapidJob && (
-                <div className="mb-2">
-                  {jobMeta.rapidJobExpiresAt ? (
-                    <RapidJobBadge
-                      rapidJobExpiresAt={jobMeta.rapidJobExpiresAt}
-                      variant="compact"
-                    />
-                  ) : (
-                    <RapidJobBadge variant="compact" />
-                  )}
+                <div className="mb-2.5">
+                  <RapidJobBadge
+                    jobDate={jobMeta.jobDate}
+                    startTime={jobMeta.startTime}
+                    endTime={jobMeta.endTime}
+                    rapidJobExpiresAt={jobMeta.rapidJobExpiresAt}
+                    variant="compact"
+                    onCutoff={() => setIsRapidCutoff(true)}
+                  />
                 </div>
               )}
 
-              <h1 className="text-2xl font-bold leading-tight sm:text-3xl">
+              <h1 className="text-2xl font-bold leading-tight sm:text-[1.75rem]">
                 {jobMeta.jobTitle}
               </h1>
 
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                  <MapPin className="size-4 shrink-0" aria-hidden="true" />
-                  {jobMeta.venueName} · {jobMeta.area}
+                  <MapPin className="size-[15px] shrink-0 text-muted-foreground/70" />
+                  {jobMeta.area}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
+                  <CalendarDays className="size-[15px] shrink-0 text-muted-foreground/70" />
                   {formatDateLabel(jobMeta.jobDate, jobMeta.startTime, jobMeta.endTime)}
                 </span>
               </div>
             </div>
 
-            {/* Stats summary */}
-            <div className="flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-3 text-sm">
-              <div className="text-center">
-                <p className="font-display text-xl font-bold text-success">{totalAvailable}</p>
-                <p className="text-xs text-muted-foreground">Available</p>
+            {/* Availability summary */}
+            <div className="flex items-center divide-x divide-border rounded-xl border border-border bg-card px-1 py-1 shadow-sm">
+              <div className="px-3 py-1.5 text-center">
+                <p className="font-display text-xl font-bold text-success leading-none">{totalAvailable}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Open</p>
               </div>
-              <div className="h-8 w-px bg-border" />
-              <div className="text-center">
-                <p className="font-display text-xl font-bold">{stats.total}</p>
-                <p className="text-xs text-muted-foreground">Total</p>
+              <div className="px-3 py-1.5 text-center">
+                <p className="font-display text-xl font-bold leading-none">{stats.total}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Total</p>
               </div>
             </div>
           </div>
 
-          {/* Preview mode badge */}
           {isMock && (
-            <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/8 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
               <Info className="size-3.5" aria-hidden="true" />
-              Preview mode — connect Supabase to enable real bookings
+              Preview mode — connect Supabase to enable live bookings
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Job closed state ────────────────────────────────────────────────── */}
+      {/* ── Rapid Cutoff Notice ────────────────────────────────────────── */}
+      {isRapidCutoff && (
+        <div className="mx-auto max-w-4xl px-4 pt-6 lg:px-8">
+          <div className="flex items-start gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-destructive">
+            <AlertCircle className="size-5 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-sm">Applications Closed</p>
+              <p className="text-xs text-destructive/85 mt-0.5">
+                Shift cutoff reached for this Rapid Job. New position reservations are closed.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Job closed / full ────────────────────────────────────────────── */}
       {(isJobFull || isJobClosed) && (
-        <div className="mx-auto max-w-4xl px-4 py-10 text-center lg:px-8">
-          <div className="rounded-2xl border-2 border-border bg-muted/20 py-14">
-            <Users className="mx-auto size-12 text-muted-foreground/40" />
-            <h2 className="mt-4 text-xl font-bold text-muted-foreground">
+        <div className="mx-auto max-w-4xl px-4 py-12 lg:px-8">
+          <div className="rounded-3xl border-2 border-dashed border-border bg-muted/20 py-16 text-center">
+            <Users className="mx-auto size-14 text-muted-foreground/30" />
+            <h2 className="mt-5 text-xl font-bold text-muted-foreground">
               {isJobClosed ? "This job is closed" : "All positions filled"}
             </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-muted-foreground/70">
               {isJobClosed
                 ? "This job is no longer accepting bookings."
-                : "Every position has been booked. Check other shifts!"}
+                : "Every position has been booked. Check other available shifts!"}
             </p>
-            <Button variant="outline" className="mt-6" asChild>
+            <Button variant="outline" className="mt-7" asChild>
               <Link to="/work">Browse other shifts</Link>
             </Button>
           </div>
         </div>
       )}
 
-      {/* ── Main content ─────────────────────────────────────────────────────── */}
+      {/* ── Main content ─────────────────────────────────────────────────── */}
       {!isJobFull && !isJobClosed && (
         <div className="mx-auto max-w-4xl px-4 py-8 lg:px-8">
 
-          {/* ── Category tabs ──────────────────────────────────────────────── */}
-          <div>
+          {/* Category tabs */}
+          <div className="mb-8">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-base font-bold">Choose a category</h2>
-              <p className="text-xs text-muted-foreground">
-                {stats.categories.length} categories · select one position
-              </p>
+              <p className="text-xs text-muted-foreground">Select one position</p>
             </div>
-
             <div
               ref={tabsRef}
               role="tablist"
@@ -969,35 +1088,40 @@ function PositionSelectionPage() {
                   key={cat.category_id}
                   cat={cat}
                   isActive={activeCategoryId === cat.category_id}
-                  selectedCategoryId={selection?.categoryId ?? null}
+                  hasSelection={selection?.categoryId === cat.category_id}
                   onClick={() => handleCategoryChange(cat.category_id)}
                 />
               ))}
             </div>
           </div>
 
-          {/* ── Position grid ──────────────────────────────────────────────── */}
+          {/* Position panel */}
           {activeCategory && (
             <div
-              key={`${activeCategoryId}-${categoryAnimKey}`}
-              className="mt-8"
+              key={panelKey}
               role="tabpanel"
               aria-label={`${activeCategory.category_name} positions`}
+              className="animate-[panel-enter_0.3s_cubic-bezier(0.22,1,0.36,1)_both]"
             >
               {/* Category header */}
-              <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+              <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-bold">{activeCategory.category_name}</h3>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2.5">
+                    <Briefcase className="size-5 text-muted-foreground/50" aria-hidden="true" />
+                    <h3 className="text-xl font-bold">{activeCategory.category_name}</h3>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground pl-[29px]">
                     {activeCategory.available > 0
                       ? `${activeCategory.available} of ${activeCategory.required_workers} positions open`
                       : "All positions filled for this category"}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
-                  <span className="text-xs font-semibold text-muted-foreground">Wage</span>
+
+                {/* Wage chip */}
+                <div className="flex items-baseline gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 shadow-sm">
+                  <span className="text-xs font-medium text-muted-foreground">Wage</span>
                   <span
-                    className={`font-display text-lg font-bold ${
+                    className={`font-display text-xl font-bold ${
                       jobMeta.isRapidJob
                         ? "text-orange-600 dark:text-orange-400"
                         : "text-primary"
@@ -1009,59 +1133,61 @@ function PositionSelectionPage() {
                 </div>
               </div>
 
-              {/* WORK POSITIONS label */}
-              <div className="mb-4 flex items-center gap-3">
-                <div className="h-px flex-1 bg-border" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
-                  Work Positions
-                </span>
-                <div className="h-px flex-1 bg-border" />
+              {/* WORK POSITIONS separator */}
+              <div className="mb-5 flex items-center gap-3">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent to-border" />
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="size-3 text-muted-foreground/40" aria-hidden="true" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground/50">
+                    Work Positions
+                  </span>
+                  <Sparkles className="size-3 text-muted-foreground/40" aria-hidden="true" />
+                </div>
+                <div className="h-px flex-1 bg-gradient-to-l from-transparent to-border" />
               </div>
 
-              {/* Tiles grid */}
+              {/* Tile grid — columns adapt to count */}
               <div
                 className={`grid gap-3 ${
-                  activeCategory.positions.length <= 4
-                    ? "grid-cols-2 sm:grid-cols-4"
-                    : activeCategory.positions.length <= 9
-                      ? "grid-cols-3 sm:grid-cols-4 lg:grid-cols-5"
-                      : "grid-cols-4 sm:grid-cols-5 lg:grid-cols-6"
+                  activeCategory.positions.length <= 3
+                    ? "grid-cols-3"
+                    : activeCategory.positions.length <= 4
+                      ? "grid-cols-2 sm:grid-cols-4"
+                      : activeCategory.positions.length <= 9
+                        ? "grid-cols-3 sm:grid-cols-4 lg:grid-cols-5"
+                        : "grid-cols-4 sm:grid-cols-5 lg:grid-cols-6"
                 }`}
               >
                 {activeCategory.positions
                   .filter((p) => p.status !== "CANCELLED")
                   .map((p, i) => (
-                    <div
+                    <PositionTile
                       key={p.id}
-                      style={{
-                        animationDelay: `${i * 40}ms`,
-                        animationFillMode: "both",
-                      }}
-                    >
-                      <PositionTile
-                        positionId={p.id}
-                        positionNumber={p.position_number}
-                        status={p.status}
-                        isSelected={selection?.positionId === p.id}
-                        totalInCategory={activeCategory.required_workers}
-                        onClick={handlePositionClick}
-                        isAnimatingIn
-                      />
-                    </div>
+                      positionId={p.id}
+                      positionNumber={p.position_number}
+                      status={p.status}
+                      isSelected={selection?.positionId === p.id}
+                      totalInCategory={activeCategory.required_workers}
+                      onClick={handlePositionClick}
+                      enterDelay={i * 45}
+                    />
                   ))}
               </div>
 
-              {/* Lost position notice */}
-              {lostPositionId && (
-                <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-orange-500/40 bg-orange-500/8 px-4 py-3 text-sm text-orange-700 dark:text-orange-400 animate-rise">
-                  <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
+              {/* Position sniped notice */}
+              {lostPosition && (
+                <div className="mt-5 flex items-start gap-3 rounded-xl border border-orange-500/35 bg-orange-500/[0.06] px-4 py-3 text-sm text-orange-700 dark:text-orange-400 animate-rise">
+                  <AlertCircle className="size-4 shrink-0 mt-0.5" aria-hidden="true" />
                   <p>
-                    <strong>Position taken.</strong> Another worker just booked it. Pick a different one.
+                    <strong>This position is no longer available.</strong>{" "}
+                    Another worker just reserved {lostPosition.categoryName} ·{" "}
+                    {posLabel(lostPosition.positionNumber, activeCategory.required_workers)}.
+                    Please pick a different one.
                   </p>
                   <button
                     type="button"
-                    onClick={() => setLostPositionId(null)}
-                    className="ml-auto shrink-0"
+                    onClick={() => setLostPosition(null)}
+                    className="ml-auto shrink-0 rounded-md p-0.5 hover:bg-orange-500/15 transition-colors"
                     aria-label="Dismiss"
                   >
                     <X className="size-4" />
@@ -1069,7 +1195,7 @@ function PositionSelectionPage() {
                 </div>
               )}
 
-              {/* Loading overlay for reserve/release */}
+              {/* Loading spinner */}
               {(reserving || releasing) && (
                 <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -1079,37 +1205,41 @@ function PositionSelectionPage() {
             </div>
           )}
 
-          {/* ── Legend ─────────────────────────────────────────────────────── */}
-          <div className="mt-10 border-t border-border pt-6">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          {/* Legend */}
+          <div className="mt-12 border-t border-border pt-6">
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/50">
               Legend
             </p>
-            <Legend />
+            <BookingLegend />
           </div>
         </div>
       )}
 
-      {/* ── Sticky bottom booking bar ────────────────────────────────────────── */}
-      <div
-        className={`fixed bottom-0 left-0 right-0 z-30 border-t-2 bg-surface/98 backdrop-blur-md transition-all duration-300 ${
-          selection
-            ? "border-primary/30 shadow-[0_-8px_32px_-8px_color-mix(in_oklab,var(--color-primary)_20%,transparent)]"
-            : "border-border"
-        }`}
-      >
-        <div className="mx-auto max-w-4xl px-4 py-4 lg:px-8">
-          {selection ? (
+      {/* ── Sticky bottom booking bar ────────────────────────────────────── */}
+      {selection ? (
+        <div
+          className={[
+            "fixed bottom-0 left-0 right-0 z-30",
+            "border-t-2 border-primary/25 bg-surface/98 backdrop-blur-md",
+            "shadow-[0_-8px_40px_-8px_color-mix(in_oklab,var(--color-primary)_22%,transparent)]",
+            "animate-[bar-rise_0.38s_cubic-bezier(0.22,1,0.36,1)_both]",
+          ].join(" ")}
+        >
+          <div className="mx-auto max-w-4xl px-4 py-4 lg:px-8">
             <div className="flex items-center justify-between gap-4">
-              {/* Selection summary */}
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Selected position
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/70">
+                  Selected Position
                 </p>
-                <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <p className="font-display text-lg font-bold leading-tight">
+                <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+                  <p className="font-display text-lg font-bold leading-tight truncate">
                     {selection.categoryName}
-                    <span className="ml-2 text-base text-muted-foreground">
-                      · {posLabel(selection.positionNumber, stats?.categories.find(c => c.category_id === selection.categoryId)?.required_workers ?? 99)}
+                    <span className="ml-2 text-base font-semibold text-muted-foreground">
+                      · {posLabel(
+                        selection.positionNumber,
+                        stats?.categories.find((c) => c.category_id === selection.categoryId)
+                          ?.required_workers ?? 99,
+                      )}
                     </span>
                   </p>
                   <p
@@ -1122,8 +1252,6 @@ function PositionSelectionPage() {
                     ₹{selection.wage.toLocaleString("en-IN")}
                   </p>
                 </div>
-
-                {/* Lock countdown */}
                 {selection.lockExpiresAt && (
                   <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <span>Hold expires in</span>
@@ -1132,72 +1260,82 @@ function PositionSelectionPage() {
                 )}
               </div>
 
-              {/* Actions */}
               <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
+                  disabled={releasing}
                   onClick={async () => {
-                    if (!currentWorkerId || !selection) return;
+                    if (!selection) return;
+                    const prevSel = selection;
                     setReleasing(true);
-                    if (!isMock) {
-                      await rpcReleasePosition(selection.positionId, currentWorkerId);
-                    }
+                    if (!isMock && currentWorkerId) await rpcReleasePosition(prevSel.positionId, currentWorkerId);
+                    broadcastPositionUpdate(jobId, {
+                      id: prevSel.positionId,
+                      job_id: jobId,
+                      status: "AVAILABLE",
+                      position_number: prevSel.positionNumber,
+                      category_id: prevSel.categoryId,
+                      worker_id: null,
+                    });
                     setSelection(null);
                     setReleasing(false);
                   }}
-                  className="flex size-10 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+                  className="flex size-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition-all hover:border-destructive/40 hover:bg-destructive/[0.06] hover:text-destructive disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label="Cancel selection"
-                  disabled={releasing}
                 >
-                  {releasing ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <X className="size-4" />
-                  )}
+                  {releasing ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
                 </button>
+
                 <Button
-                  variant={jobMeta?.isRapidJob ? "destructive" : "hero"}
-                  size="lg"
-                  onClick={handleContinue}
-                  className={`min-w-[140px] transition-all duration-200 active:scale-[0.97] ${
-                    jobMeta?.isRapidJob
-                      ? "bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600"
-                      : ""
-                  }`}
                   id="continue-booking-btn"
+                  size="lg"
+                  disabled={isRapidCutoff}
+                  onClick={handleContinue}
+                  className={`min-w-[140px] font-bold transition-all duration-200 active:scale-[0.97] ${
+                    isRapidCutoff
+                      ? "opacity-50 cursor-not-allowed bg-muted text-muted-foreground"
+                      : jobMeta?.isRapidJob
+                        ? "bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 shadow-[0_4px_18px_color-mix(in_oklab,#F26B1D_38%,transparent)]"
+                        : "shadow-brand hover:shadow-brand-lg"
+                  }`}
                 >
-                  Continue
-                  <ArrowRight className="size-4" aria-hidden="true" />
+                  {isRapidCutoff ? "Applications Closed" : "Continue"}
+                  {!isRapidCutoff && <ArrowRight className="size-4" aria-hidden="true" />}
                 </Button>
               </div>
             </div>
-          ) : (
-            // Nothing selected
+          </div>
+        </div>
+      ) : (
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-surface/95 backdrop-blur-md">
+          <div className="mx-auto max-w-4xl px-4 py-4 lg:px-8">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold text-muted-foreground">
-                  {isJobFull
-                    ? "All positions filled"
-                    : "Select one available position to continue"}
+                  {isRapidCutoff
+                    ? "Applications closed — shift cutoff reached"
+                    : isJobFull
+                      ? "All positions filled"
+                      : "Select one available position to continue"}
                 </p>
-                <p className="text-xs text-muted-foreground/60">
-                  One position per worker · wage shown before booking
+                <p className="text-[11px] text-muted-foreground/55 mt-0.5">
+                  One position per worker · wage displayed above
                 </p>
               </div>
               <Button
+                id="continue-booking-disabled-btn"
                 variant="outline"
                 size="lg"
                 disabled
                 className="min-w-[140px] opacity-50"
-                id="continue-booking-disabled-btn"
               >
-                Continue
+                {isRapidCutoff ? "Closed" : "Continue"}
                 <ChevronRight className="size-4" aria-hidden="true" />
               </Button>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -1206,61 +1344,59 @@ function PositionSelectionPage() {
 
 function PositionSelectionSkeleton() {
   return (
-    <div className="min-h-screen pb-32">
-      {/* Topbar */}
+    <div className="min-h-screen pb-36">
       <div className="border-b border-border bg-surface">
         <div className="mx-auto max-w-4xl px-4 py-3 lg:px-8">
-          <div className="h-9 w-32 animate-pulse rounded-lg bg-muted" />
+          <div className="h-9 w-28 animate-pulse rounded-lg bg-muted" />
         </div>
       </div>
 
-      {/* Header */}
       <div className="border-b border-border bg-surface">
-        <div className="mx-auto max-w-4xl px-4 py-6 lg:px-8 space-y-3">
+        <div className="mx-auto max-w-4xl space-y-3 px-4 py-6 lg:px-8">
+          <div className="h-4 w-20 animate-pulse rounded bg-muted" />
           <div className="h-8 w-2/3 animate-pulse rounded-lg bg-muted" />
           <div className="flex gap-4">
+            <div className="h-4 w-28 animate-pulse rounded bg-muted" />
             <div className="h-4 w-40 animate-pulse rounded bg-muted" />
-            <div className="h-4 w-36 animate-pulse rounded bg-muted" />
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-4xl px-4 py-8 lg:px-8 space-y-8">
-        {/* Category tabs */}
+      <div className="mx-auto max-w-4xl space-y-8 px-4 py-8 lg:px-8">
         <div className="flex gap-2">
-          {[100, 120, 90, 110].map((w, i) => (
+          {[110, 130, 120, 105].map((w, i) => (
             <div
               key={i}
               className="h-10 animate-pulse rounded-xl bg-muted"
-              style={{ width: w }}
+              style={{ width: w, animationDelay: `${i * 60}ms` }}
             />
           ))}
         </div>
 
-        {/* Category header */}
-        <div className="space-y-2">
-          <div className="h-7 w-48 animate-pulse rounded-lg bg-muted" />
-          <div className="h-4 w-64 animate-pulse rounded bg-muted" />
+        <div className="flex items-start justify-between">
+          <div className="space-y-2">
+            <div className="h-7 w-48 animate-pulse rounded-lg bg-muted" />
+            <div className="h-4 w-56 animate-pulse rounded bg-muted" />
+          </div>
+          <div className="h-12 w-32 animate-pulse rounded-xl bg-muted" />
         </div>
 
-        {/* Position grid */}
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
           {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
-              className="h-20 animate-pulse rounded-2xl bg-muted"
-              style={{ animationDelay: `${i * 40}ms` }}
+              className="h-[80px] animate-pulse rounded-2xl bg-muted"
+              style={{ animationDelay: `${i * 50}ms` }}
             />
           ))}
         </div>
       </div>
 
-      {/* Bottom bar skeleton */}
       <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-surface/95 px-4 py-4">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <div className="space-y-1.5">
-            <div className="h-3 w-32 animate-pulse rounded bg-muted" />
-            <div className="h-5 w-48 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-28 animate-pulse rounded bg-muted" />
+            <div className="h-6 w-52 animate-pulse rounded-lg bg-muted" />
           </div>
           <div className="h-12 w-36 animate-pulse rounded-xl bg-muted" />
         </div>

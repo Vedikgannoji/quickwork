@@ -38,9 +38,10 @@ import { Button } from "@/components/ui/button";
 import { JobCardListSkeleton } from "@/components/job-card-skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
-import { RapidJobBadge } from "@/components/rapid-job-badge";
+import { RapidJobBadge, RapidJobSpotlightCard } from "@/components/rapid-job-badge";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { useAuth } from "@/lib/auth-context";
+import { getDistanceToJob } from "@/lib/distance-utils";
 import {
   JOB_CATEGORY_LABELS,
   type JobCategoryValue,
@@ -271,140 +272,159 @@ async function fetchJobs(params: FetchParams): Promise<{
 
 // ─── Mock data fallback (no Supabase env vars) ────────────────────────────────
 
-const MOCK_JOBS: JobListing[] = [
-  {
-    id: "mock-1",
-    jobTitle: "Wedding Event Staff — Grand Sapphire Banquets",
-    category: "Hospitality",
-    description: "Experienced event staff for a premium wedding reception.",
-    venueName: "Grand Sapphire Banquets",
-    area: "Gachibowli",
-    city: "Hyderabad",
-    jobDate: TODAY_ISO,
-    startTime: "19:00",
-    endTime: "23:30",
-    isRapidJob: true,
-    rapidJobExpiresAt: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
-    status: "Open",
-    facilities: ["Meals provided", "Uniform"],
-    isVerifiedEmployer: true,
-    minWage: 1200,
-    maxWage: 1400,
-    categoryNames: ["Food Serving", "Liquor Serving", "Starters"],
-    totalPositions: 12,
-    availablePositions: 8,
-  },
-  {
-    id: "mock-2",
-    jobTitle: "Corporate Conference Stewards",
-    category: "Events",
-    description: "Professional event stewards for a 2-day corporate conference.",
-    venueName: "HICC Convention Centre",
-    area: "Madhapur",
-    city: "Hyderabad",
-    jobDate: TODAY_ISO,
-    startTime: "08:00",
-    endTime: "18:00",
-    isRapidJob: false,
-    rapidJobExpiresAt: null,
-    status: "Open",
-    facilities: ["Meals provided", "Transport", "Uniform"],
-    isVerifiedEmployer: true,
-    minWage: 1400,
-    maxWage: 1400,
-    categoryNames: ["Registration Desk", "Floor Stewards", "AV Crew"],
-    totalPositions: 18,
-    availablePositions: 12,
-  },
-  {
-    id: "mock-3",
-    jobTitle: "Warehouse Loading Staff — Weekend Shift",
-    category: "Warehouse",
-    description: "Need warehouse loading staff for weekend inventory shift. Must be able to lift 20 kg+.",
-    venueName: "Urban Logistics Hub",
-    area: "Uppal",
-    city: "Hyderabad",
-    jobDate: TOMORROW_ISO,
-    startTime: "06:00",
-    endTime: "14:00",
-    isRapidJob: false,
-    rapidJobExpiresAt: null,
-    status: "PartiallyFilled",
-    facilities: ["Meals provided", "Transport"],
-    isVerifiedEmployer: false,
-    minWage: 1100,
-    maxWage: 1100,
-    categoryNames: ["Loading Crew"],
-    totalPositions: 10,
-    availablePositions: 6,
-  },
-  {
-    id: "mock-4",
-    jobTitle: "Food Court Servers — Phoenix Mall",
-    category: "Retail",
-    description: "Experienced food court servers for a busy weekend at Phoenix Mall.",
-    venueName: "Phoenix Palladium Mall",
-    area: "Manikonda",
-    city: "Hyderabad",
-    jobDate: TOMORROW_ISO,
-    startTime: "11:00",
-    endTime: "21:00",
-    isRapidJob: true,
-    rapidJobExpiresAt: new Date(Date.now() + 35 * 60 * 1000).toISOString(),
-    status: "Open",
-    facilities: ["Meals provided"],
-    isVerifiedEmployer: true,
-    minWage: 950,
-    maxWage: 950,
-    categoryNames: ["Floor Servers", "Cashier Desk"],
-    totalPositions: 8,
-    availablePositions: 5,
-  },
-  {
-    id: "mock-5",
-    jobTitle: "Banquet Kitchen Crew",
-    category: "Hospitality",
-    description: "Kitchen preparation and plating crew for large banquet event.",
-    venueName: "Novotel Hyderabad Airport",
-    area: "Shamshabad",
-    city: "Hyderabad",
-    jobDate: TOMORROW_ISO,
-    startTime: "14:00",
-    endTime: "22:00",
-    isRapidJob: false,
-    rapidJobExpiresAt: null,
-    status: "Open",
-    facilities: ["Meals provided", "Uniform"],
-    isVerifiedEmployer: true,
-    minWage: 1300,
-    maxWage: 1500,
-    categoryNames: ["Kitchen Prep", "Plating", "Desserts"],
-    totalPositions: 9,
-    availablePositions: 9,
-  },
-  {
-    id: "mock-6",
-    jobTitle: "E-commerce Delivery Partners — Weekend Rush",
-    category: "Delivery",
-    description: "Own vehicle required. High-density delivery run for weekend orders.",
-    venueName: "Distribution Hub",
-    area: "Kukatpally",
-    city: "Hyderabad",
-    jobDate: TOMORROW_ISO,
-    startTime: "08:00",
-    endTime: "20:00",
-    isRapidJob: false,
-    rapidJobExpiresAt: null,
-    status: "Open",
-    facilities: [],
-    isVerifiedEmployer: false,
-    minWage: 1500,
-    maxWage: 1500,
-    categoryNames: ["Delivery Riders"],
-    totalPositions: 15,
-    availablePositions: 10,
-  },
-];
+// ─── Mock data fallback (no Supabase env vars) ────────────────────────────────
+
+function buildDynamicMockJobs(): JobListing[] {
+  const now = Date.now();
+  // Target 1: Starts in ~47 minutes 32 seconds (matching prompt example!)
+  const rapid1Start = new Date(now + (47 * 60 + 32) * 1000);
+  const rapid1StartStr = `${String(rapid1Start.getHours()).padStart(2, "0")}:${String(rapid1Start.getMinutes()).padStart(2, "0")}`;
+  const rapid1End = new Date(now + (47 * 60 + 32 + 4 * 3600) * 1000);
+  const rapid1EndStr = `${String(rapid1End.getHours()).padStart(2, "0")}:${String(rapid1End.getMinutes()).padStart(2, "0")}`;
+
+  // Target 2: Starts in ~24 minutes 15 seconds
+  const rapid2Start = new Date(now + (24 * 60 + 15) * 1000);
+  const rapid2StartStr = `${String(rapid2Start.getHours()).padStart(2, "0")}:${String(rapid2Start.getMinutes()).padStart(2, "0")}`;
+  const rapid2End = new Date(now + (24 * 60 + 15 + 5 * 3600) * 1000);
+  const rapid2EndStr = `${String(rapid2End.getHours()).padStart(2, "0")}:${String(rapid2End.getMinutes()).padStart(2, "0")}`;
+
+  return [
+    {
+      id: "mock-1",
+      jobTitle: "Banquet Server",
+      category: "Hospitality",
+      description: "Urgent banquet server needed immediately for high-end wedding reception at Grand Sapphire Banquets. Tasks include table service, starter circulation, and guest assistance.",
+      venueName: "Grand Sapphire Banquets",
+      area: "Gachibowli",
+      city: "Hyderabad",
+      jobDate: TODAY_ISO,
+      startTime: rapid1StartStr,
+      endTime: rapid1EndStr,
+      isRapidJob: true,
+      rapidJobExpiresAt: rapid1Start.toISOString(),
+      status: "Open",
+      facilities: ["Meals provided", "Uniform"],
+      isVerifiedEmployer: true,
+      minWage: 1500,
+      maxWage: 1500,
+      categoryNames: ["Food Serving", "Liquor Serving"],
+      totalPositions: 5,
+      availablePositions: 3, // 3 workers required!
+    },
+    {
+      id: "mock-2",
+      jobTitle: "Corporate Conference Stewards",
+      category: "Events",
+      description: "Professional event stewards for a 2-day corporate conference.",
+      venueName: "HICC Convention Centre",
+      area: "Madhapur",
+      city: "Hyderabad",
+      jobDate: TODAY_ISO,
+      startTime: "14:00",
+      endTime: "21:00",
+      isRapidJob: false,
+      rapidJobExpiresAt: null,
+      status: "Open",
+      facilities: ["Meals provided", "Transport", "Uniform"],
+      isVerifiedEmployer: true,
+      minWage: 1400,
+      maxWage: 1400,
+      categoryNames: ["Registration Desk", "Floor Stewards", "AV Crew"],
+      totalPositions: 18,
+      availablePositions: 12,
+    },
+    {
+      id: "mock-3",
+      jobTitle: "Warehouse Loading Staff — Weekend Shift",
+      category: "Warehouse",
+      description: "Need warehouse loading staff for weekend inventory shift. Must be able to lift 20 kg+.",
+      venueName: "Urban Logistics Hub",
+      area: "Uppal",
+      city: "Hyderabad",
+      jobDate: TOMORROW_ISO,
+      startTime: "06:00",
+      endTime: "14:00",
+      isRapidJob: false,
+      rapidJobExpiresAt: null,
+      status: "PartiallyFilled",
+      facilities: ["Meals provided", "Transport"],
+      isVerifiedEmployer: false,
+      minWage: 1100,
+      maxWage: 1100,
+      categoryNames: ["Loading Crew"],
+      totalPositions: 10,
+      availablePositions: 6,
+    },
+    {
+      id: "mock-4",
+      jobTitle: "Food Court Servers — Phoenix Mall",
+      category: "Retail",
+      description: "Experienced food court servers for immediate rush hours at Phoenix Mall.",
+      venueName: "Phoenix Palladium Mall",
+      area: "Manikonda",
+      city: "Hyderabad",
+      jobDate: TODAY_ISO,
+      startTime: rapid2StartStr,
+      endTime: rapid2EndStr,
+      isRapidJob: true,
+      rapidJobExpiresAt: rapid2Start.toISOString(),
+      status: "Open",
+      facilities: ["Meals provided"],
+      isVerifiedEmployer: true,
+      minWage: 1200,
+      maxWage: 1200,
+      categoryNames: ["Floor Servers", "Cashier Desk"],
+      totalPositions: 6,
+      availablePositions: 2,
+    },
+    {
+      id: "mock-5",
+      jobTitle: "Banquet Kitchen Crew",
+      category: "Hospitality",
+      description: "Kitchen preparation and plating crew for large banquet event.",
+      venueName: "Novotel Hyderabad Airport",
+      area: "Shamshabad",
+      city: "Hyderabad",
+      jobDate: TOMORROW_ISO,
+      startTime: "14:00",
+      endTime: "22:00",
+      isRapidJob: false,
+      rapidJobExpiresAt: null,
+      status: "Open",
+      facilities: ["Meals provided", "Uniform"],
+      isVerifiedEmployer: true,
+      minWage: 1300,
+      maxWage: 1500,
+      categoryNames: ["Kitchen Prep", "Plating", "Desserts"],
+      totalPositions: 9,
+      availablePositions: 9,
+    },
+    {
+      id: "mock-6",
+      jobTitle: "E-commerce Delivery Partners — Weekend Rush",
+      category: "Delivery",
+      description: "Own vehicle required. High-density delivery run for weekend orders.",
+      venueName: "Distribution Hub",
+      area: "Kukatpally",
+      city: "Hyderabad",
+      jobDate: TOMORROW_ISO,
+      startTime: "08:00",
+      endTime: "20:00",
+      isRapidJob: false,
+      rapidJobExpiresAt: null,
+      status: "Open",
+      facilities: [],
+      isVerifiedEmployer: false,
+      minWage: 1500,
+      maxWage: 1500,
+      categoryNames: ["Delivery Riders"],
+      totalPositions: 15,
+      availablePositions: 10,
+    },
+  ];
+}
+
+const MOCK_JOBS: JobListing[] = buildDynamicMockJobs();
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -441,9 +461,12 @@ function wageDisplay(min: number, max: number): string {
   return `₹${min.toLocaleString("en-IN")} – ₹${max.toLocaleString("en-IN")}`;
 }
 
-function availabilityLabel(available: number, total: number): string {
+function availabilityLabel(available: number, total: number, isRapid: boolean): string {
   if (total === 0) return "No positions";
   if (available === 0) return "All filled";
+  if (isRapid) {
+    return `${available} worker${available !== 1 ? "s" : ""} required`;
+  }
   if (available === total) return `${total} positions open`;
   return `${available} / ${total} positions left`;
 }
@@ -479,26 +502,26 @@ function AvailabilityBar({
           className={`text-xs font-semibold ${
             isFull
               ? "text-muted-foreground"
-              : isLow
-                ? "text-orange-600 dark:text-orange-400"
+              : isLow || isRapid
+                ? "text-orange-600 dark:text-orange-400 font-bold"
                 : "text-success"
           }`}
         >
-          {availabilityLabel(available, total)}
+          {availabilityLabel(available, total, isRapid)}
         </span>
         {isLow && !isFull && (
-          <span className="animate-pulse text-[10px] font-bold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-orange-600 dark:text-orange-400">
             Filling fast
           </span>
         )}
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <div
-          className={`h-full rounded-full transition-all duration-700 ${
+          className={`h-full rounded-full transition-all duration-700 ease-out ${
             isFull
               ? "bg-muted-foreground/40"
               : isLow || isRapid
-                ? "bg-gradient-to-r from-orange-500 to-orange-400"
+                ? "bg-gradient-to-r from-orange-500 to-amber-400 animate-availability-urgent"
                 : "bg-gradient-to-r from-success to-emerald-400"
           }`}
           style={{ width: `${fill}%` }}
@@ -520,13 +543,18 @@ interface JobCardProps {
 }
 
 function JobCard({ job, index }: JobCardProps) {
+  const [isCutoff, setIsCutoff] = useState(false);
   const isFull = job.availablePositions === 0 && job.totalPositions > 0;
+  const isClosed = isCutoff;
+  const distanceInfo = getDistanceToJob(job.area);
 
   return (
     <Link
       to="/work/$jobId"
       params={{ jobId: job.id }}
-      className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-2xl"
+      className={`group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-2xl ${
+        isClosed ? "pointer-events-none opacity-60" : ""
+      }`}
       style={{
         animationDelay: `${index * 55}ms`,
         animationFillMode: "both",
@@ -535,31 +563,31 @@ function JobCard({ job, index }: JobCardProps) {
     >
       <article
         className={`animate-bounce-in relative flex h-full flex-col overflow-hidden rounded-2xl border-2 transition-all duration-200 ${
-          isFull
-            ? "border-border bg-muted/20 opacity-55"
+          isFull || isClosed
+            ? "border-border bg-muted/20 opacity-60"
             : job.isRapidJob
-              ? "border-orange-500/40 bg-gradient-to-br from-orange-500/5 to-card hover:border-orange-500/70 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(249,115,22,0.18)]"
+              ? "border-orange-500/40 bg-gradient-to-br from-orange-500/5 to-card hover:border-orange-500/80 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(249,115,22,0.18)]"
               : "border-border bg-card hover:border-primary/40 hover:-translate-y-1 hover:shadow-lift"
         }`}
         style={{ animationDelay: `${index * 55}ms` }}
       >
         {/* Rapid Job accent strip */}
-        {job.isRapidJob && !isFull && (
+        {job.isRapidJob && !isFull && !isClosed && (
           <div className="h-1 w-full bg-gradient-to-r from-orange-500 via-orange-400 to-yellow-400" />
         )}
 
         <div className="flex flex-1 flex-col p-5">
-          {/* Rapid badge */}
-          {job.isRapidJob && !isFull && (
+          {/* Rapid badge with live countdown */}
+          {job.isRapidJob && (
             <div className="mb-3">
-              {job.rapidJobExpiresAt ? (
-                <RapidJobBadge
-                  rapidJobExpiresAt={job.rapidJobExpiresAt}
-                  variant="compact"
-                />
-              ) : (
-                <RapidJobBadge variant="compact" />
-              )}
+              <RapidJobBadge
+                jobDate={job.jobDate}
+                startTime={job.startTime}
+                endTime={job.endTime}
+                rapidJobExpiresAt={job.rapidJobExpiresAt}
+                onCutoff={() => setIsCutoff(true)}
+                variant="compact"
+              />
             </div>
           )}
 
@@ -568,7 +596,7 @@ function JobCard({ job, index }: JobCardProps) {
             <div className="flex min-w-0 flex-1 flex-col">
               <h2
                 className={`text-base font-bold leading-snug ${
-                  isFull ? "text-muted-foreground" : "text-foreground"
+                  isFull || isClosed ? "text-muted-foreground" : "text-foreground"
                 }`}
               >
                 {job.jobTitle}
@@ -578,7 +606,7 @@ function JobCard({ job, index }: JobCardProps) {
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-0.5 text-xs font-semibold ${
-                    job.isRapidJob && !isFull
+                    job.isRapidJob && !isFull && !isClosed
                       ? "border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-400"
                       : "border-primary/30 bg-primary/10 text-primary"
                   }`}
@@ -596,12 +624,18 @@ function JobCard({ job, index }: JobCardProps) {
             </div>
           </div>
 
-          {/* Location */}
-          <p className="mt-3 flex items-center gap-1.5 text-sm text-muted-foreground">
+          {/* Location & Distance */}
+          <p className="mt-3 flex items-center gap-1.5 text-sm text-muted-foreground flex-wrap">
             <MapPin className="size-4 shrink-0 text-muted-foreground/70" aria-hidden="true" />
             <span className="font-medium text-foreground">{job.venueName}</span>
             <span className="text-muted-foreground/50">·</span>
             <span>{job.area}, {job.city}</span>
+            {distanceInfo.distanceDisplay && (
+              <>
+                <span className="text-muted-foreground/50">·</span>
+                <span className="font-semibold text-foreground/80">{distanceInfo.distanceDisplay}</span>
+              </>
+            )}
           </p>
 
           {/* Date */}
@@ -633,9 +667,9 @@ function JobCard({ job, index }: JobCardProps) {
           <div className="mt-4">
             <p
               className={`font-display text-2xl font-bold ${
-                job.isRapidJob && !isFull
+                job.isRapidJob && !isFull && !isClosed
                   ? "text-orange-600 dark:text-orange-400"
-                  : isFull
+                  : isFull || isClosed
                     ? "text-muted-foreground"
                     : "text-primary"
               }`}
@@ -670,7 +704,11 @@ function JobCard({ job, index }: JobCardProps) {
 
           {/* CTA */}
           <div className="mt-auto pt-5">
-            {isFull ? (
+            {isClosed ? (
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/40 py-2.5 text-sm font-semibold text-muted-foreground">
+                Applications Closed
+              </div>
+            ) : isFull ? (
               <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/40 py-2.5 text-sm font-semibold text-muted-foreground">
                 All positions filled
               </div>
@@ -678,11 +716,11 @@ function JobCard({ job, index }: JobCardProps) {
               <div
                 className={`flex items-center justify-between rounded-xl px-4 py-2.5 text-sm font-bold transition-all duration-200 ${
                   job.isRapidJob
-                    ? "bg-gradient-to-r from-orange-500 to-orange-400 text-white group-hover:from-orange-600 group-hover:to-orange-500"
+                    ? "bg-gradient-to-r from-orange-500 to-orange-400 text-white group-hover:from-orange-600 group-hover:to-orange-500 shadow-[0_2px_12px_rgba(249,115,22,0.25)]"
                     : "bg-primary text-primary-foreground group-hover:opacity-90"
                 }`}
               >
-                <span>View job</span>
+                <span>{job.isRapidJob ? "Select Position — Urgent" : "View job"}</span>
                 <ChevronRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
               </div>
             )}
@@ -785,12 +823,12 @@ function WorkPage() {
   const [page, setPage]               = useState(0);
 
   // Data
-  const [jobs, setJobs]               = useState<JobListing[]>([]);
-  const [loading, setLoading]         = useState(true);
+  const [jobs, setJobs]               = useState<JobListing[]>(() => buildDynamicMockJobs());
+  const [loading, setLoading]         = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore]         = useState(false);
   const [error, setError]             = useState<string | null>(null);
-  const [isMockData, setIsMockData]   = useState(false);
+  const [isMockData, setIsMockData]   = useState(true);
 
   // Debounce search input
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -986,7 +1024,7 @@ function WorkPage() {
         </span>
 
         <FilterPill
-          label="⚡ Rapid Jobs"
+          label={rapidJobs.length > 0 ? `⚡ Rapid Jobs (${rapidJobs.length})` : "⚡ Rapid Jobs"}
           isActive={activeFilters.includes("rapid")}
           isRapid
           onClick={() => toggleFilter("rapid")}
@@ -1067,19 +1105,45 @@ function WorkPage() {
             <>
               {/* Rapid Jobs spotlight section */}
               {rapidJobs.length > 0 && !activeFilters.includes("rapid") && (
-                <section className="mb-8" aria-label="Urgent rapid jobs">
-                  <div className="mb-4 flex items-center gap-2">
-                    <span className="flex size-7 items-center justify-center rounded-lg bg-orange-500/15">
-                      <Zap className="size-4 text-orange-600 dark:text-orange-400" aria-hidden="true" />
-                    </span>
-                    <h2 className="text-lg font-bold">Urgent — Fill Fast</h2>
-                    <span className="rounded-full border border-orange-500/40 bg-orange-500/10 px-2 py-0.5 text-xs font-bold text-orange-600 dark:text-orange-400">
-                      {rapidJobs.length} urgent
+                <section className="mb-10 rounded-3xl border-2 border-orange-500/35 bg-gradient-to-b from-orange-500/[0.04] via-card to-card p-5 sm:p-6 shadow-sm" aria-label="Urgent rapid jobs">
+                  <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="flex size-7 items-center justify-center rounded-lg bg-orange-500/15 text-orange-600 dark:text-orange-400">
+                          <Zap className="size-4 fill-current" aria-hidden="true" />
+                        </span>
+                        <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                          ⚡ Rapid Jobs — Immediate Shifts Needed
+                        </h2>
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Urgent jobs where workers are required immediately or within a short time. Real-time countdown &amp; instant booking.
+                      </p>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/40 bg-orange-500/10 px-3 py-1 text-xs font-bold text-orange-600 dark:text-orange-400">
+                      <span className="size-2 rounded-full bg-orange-500 animate-pulse" />
+                      {rapidJobs.length} Urgent Shift{rapidJobs.length !== 1 ? "s" : ""}
                     </span>
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {rapidJobs.map((job, i) => (
-                      <JobCard key={job.id} job={job} index={i} />
+
+                  <div className="grid gap-5 md:grid-cols-2">
+                    {rapidJobs.map((job) => (
+                      <RapidJobSpotlightCard
+                        key={job.id}
+                        id={job.id}
+                        jobTitle={job.jobTitle}
+                        category={job.category}
+                        venueName={job.venueName}
+                        area={job.area}
+                        city={job.city}
+                        jobDate={job.jobDate}
+                        startTime={job.startTime}
+                        endTime={job.endTime}
+                        wage={job.maxWage || job.minWage}
+                        availablePositions={job.availablePositions}
+                        totalPositions={job.totalPositions}
+                        rapidJobExpiresAt={job.rapidJobExpiresAt}
+                      />
                     ))}
                   </div>
                 </section>

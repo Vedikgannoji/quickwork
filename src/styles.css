@@ -61,6 +61,10 @@
   --animate-rise: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-step-in: step-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-step-in-back: step-in-back 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pos-enter: pos-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-bar-rise: bar-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pos-select: pos-select 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-available-glow: available-glow 3s ease-in-out infinite;
 
 }
 
@@ -347,3 +351,189 @@
   --rapid-orange-dark: #FF6B35;
   --rapid-orange-glow: color-mix(in oklab, #FF8A5B 45%, transparent);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Position Selection Screen Animations
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Position tile entrance — staggered from bottom with slight scale */
+@keyframes pos-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Bottom bar entrance — slides up from below */
+@keyframes bar-rise {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Position select micro-bounce */
+@keyframes pos-select {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.08); }
+  100% { transform: scale(1.05); }
+}
+
+/* Available tile subtle glow pulse */
+@keyframes available-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--success) 22%, transparent);
+  }
+}
+
+/* Category panel slide-in from right */
+@keyframes panel-enter {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Category panel slide-in from left (back navigation) */
+@keyframes panel-enter-back {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Accordion expand */
+@keyframes accordion-down {
+  from { opacity: 0; max-height: 0; }
+  to   { opacity: 1; max-height: 2000px; }
+}
+@keyframes accordion-up {
+  from { opacity: 1; max-height: 2000px; }
+  to   { opacity: 0; max-height: 0; }
+}
+
+/* Applicant card stagger entrance */
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Count number roll */
+@keyframes count-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+/* Success checkmark draw (SVG stroke-dashoffset) */
+@keyframes check-draw {
+  from { stroke-dashoffset: 60; opacity: 0; }
+  to   { stroke-dashoffset: 0;  opacity: 1; }
+}
+
+/* Outer ring scale + fade */
+@keyframes ring-pop {
+  0%   { transform: scale(0.7); opacity: 0; }
+  60%  { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+/* Subtle ring pulse after pop — ambient breathing */
+@keyframes ring-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--success) 0%, transparent); }
+  50%       { box-shadow: 0 0 0 10px color-mix(in oklab, var(--success) 12%, transparent); }
+}
+
+/* Content fade-up stagger base */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Review screen slide in */
+@keyframes review-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Rapid Jobs Subtle Urgency Animations
+   (Targeted micro-animations only — never whole-page flash or pulse)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Subtle localized badge pulse */
+@keyframes rapid-badge-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.45);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(249, 115, 22, 0);
+    transform: scale(1.02);
+  }
+}
+.animate-rapid-badge {
+  animation: rapid-badge-pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Subtle countdown transition for live ticking */
+@keyframes countdown-tick {
+  0% {
+    opacity: 0.85;
+    transform: translateY(-0.75px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-countdown-tick {
+  animation: countdown-tick 0.25s ease-out;
+}
+
+/* Subtle availability bar amber shimmer for low/urgent spots */
+@keyframes availability-urgent-shimmer {
+  0%, 100% {
+    filter: drop-shadow(0 0 0px transparent);
+  }
+  50% {
+    filter: drop-shadow(0 0 5px rgba(249, 115, 22, 0.5));
+  }
+}
+.animate-availability-urgent {
+  animation: availability-urgent-shimmer 2.4s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Prefers-reduced-motion — disable all non-essential motion
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

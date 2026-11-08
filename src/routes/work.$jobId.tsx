@@ -30,15 +30,17 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { JobDetailsSkeleton } from "@/components/job-details-skeleton";
 import { ErrorState } from "@/components/error-state";
-import { RapidJobBadge } from "@/components/rapid-job-badge";
+import { RapidJobBadge, RapidJobCountdownBlock } from "@/components/rapid-job-badge";
 import { useAuth } from "@/lib/auth-context";
 import { useApplications } from "@/lib/application-model";
+import { getDistanceToJob } from "@/lib/distance-utils";
 import {
   JOB_CATEGORY_LABELS,
   JOB_TYPE_LABELS,
   type JobCategoryValue,
 } from "@/lib/job-types";
 import { supabase } from "@/lib/supabase";
+import { subscribeToJobPositions } from "@/lib/position-service";
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
@@ -211,92 +213,79 @@ async function fetchJobDetail(jobId: string): Promise<{
 
 const TODAY_ISO = new Date().toISOString().split("T")[0]!;
 
-const MOCK_JOB: JobDetail = {
-  id: "mock",
-  jobTitle: "Wedding Event Staff — Grand Sapphire Banquets",
-  category: "Hospitality",
-  description:
-    "We're looking for experienced event staff for a premium wedding reception at Grand Sapphire Banquets. You'll be responsible for serving guests during the reception, ensuring drinks are refilled, clearing plates, and maintaining a professional demeanor throughout the event. This is a high-end venue with elevated expectations for service quality. Prior banquet experience is an advantage.",
-  jobType: "one-time",
-  venueName: "Grand Sapphire Banquets",
-  fullAddress: "Plot 12, Financial District, Nanakramguda",
-  area: "Gachibowli",
-  city: "Hyderabad",
-  landmark: "Near Cyber Towers",
-  jobDate: TODAY_ISO,
-  startTime: "19:00",
-  endTime: "23:30",
-  facilities: ["Meals provided", "Uniform", "Transport"],
-  requirements: {
-    experience: "1–2 years in banquet or catering service preferred",
-    skills: ["Fine dining service", "Tray carrying", "Guest interaction"],
-    dress_code: "Black trousers, white shirt (uniform jacket provided)",
-    documents_required: "Aadhar card, 2 passport photos",
-  },
-  instructions: {
-    before_arrival: [
-      "Arrive 30 minutes before shift start",
-      "Report to the supervisor at the main entrance",
-      "Bring required documents",
-      "Wear black formal shoes",
+function buildMockJobDetail(): JobDetail {
+  const now = Date.now();
+  const start = new Date(now + (47 * 60 + 32) * 1000); // 47m 32s matching example
+  const startStr = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
+  const end = new Date(now + (47 * 60 + 32 + 4 * 3600) * 1000);
+  const endStr = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+
+  return {
+    id: "mock-1",
+    jobTitle: "Banquet Server",
+    category: "Hospitality",
+    description:
+      "Urgent banquet server needed immediately for high-end wedding reception at Grand Sapphire Banquets. You'll be responsible for greeting guests, serving food and beverages, and clearing tables. 3 workers required immediately. High pay with surge pricing included.",
+    jobType: "one-time",
+    venueName: "Grand Sapphire Banquets",
+    fullAddress: "Plot 12, Financial District, Nanakramguda",
+    area: "Gachibowli",
+    city: "Hyderabad",
+    landmark: "Near Cyber Towers",
+    jobDate: TODAY_ISO,
+    startTime: startStr,
+    endTime: endStr,
+    facilities: ["Meals provided", "Uniform provided", "Transport"],
+    requirements: {
+      experience: "Prior banquet, event, or catering service preferred",
+      skills: ["Guest service", "Tray carrying", "Food serving"],
+      dress_code: "Black trousers, white shirt (uniform provided on-site)",
+      documents_required: "Government ID",
+    },
+    instructions: {
+      before_arrival: [
+        "Arrive 15 minutes before shift start",
+        "Report to supervisor Rajesh Kumar at the main entrance",
+        "Bring government ID",
+      ],
+      during_shift: [
+        "Follow supervisor guidance",
+        "Maintain courteous and helpful service to all guests",
+      ],
+    },
+    reportingContact: { name: "Rajesh Kumar", phone: "+91 98765 43210" },
+    isRapidJob: true,
+    rapidJobExpiresAt: start.toISOString(),
+    status: "Open",
+    workCategories: [
+      {
+        id: "cat-1",
+        name: "Food Serving",
+        wage: 1500,
+        requiredWorkers: 3,
+        availablePositions: 2,
+        bookedPositions: 1,
+        description: "Serve banquet food courses to seated guests at assigned tables.",
+        sortOrder: 1,
+      },
+      {
+        id: "cat-2",
+        name: "Liquor Serving",
+        wage: 1500,
+        requiredWorkers: 2,
+        availablePositions: 1,
+        bookedPositions: 1,
+        description: "Pour and serve beverages including wine, mocktails and spirits.",
+        sortOrder: 2,
+      },
     ],
-    during_shift: [
-      "Follow supervisor instructions at all times",
-      "Maintain professional appearance",
-      "Handle guest requests promptly",
-      "Clear tables between courses",
-    ],
-  },
-  reportingContact: { name: "Rajesh Kumar", phone: "+91 98765 43210" },
-  isRapidJob: true,
-  rapidJobExpiresAt: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
-  status: "Open",
-  workCategories: [
-    {
-      id: "cat-1",
-      name: "Food Serving",
-      wage: 1200,
-      requiredWorkers: 5,
-      availablePositions: 3,
-      bookedPositions: 2,
-      description: "Serve food courses to guests at assigned tables.",
-      sortOrder: 1,
-    },
-    {
-      id: "cat-2",
-      name: "Liquor Serving",
-      wage: 1400,
-      requiredWorkers: 3,
-      availablePositions: 1,
-      bookedPositions: 2,
-      description: "Pour and serve beverages including wine and spirits.",
-      sortOrder: 2,
-    },
-    {
-      id: "cat-3",
-      name: "Starters Serving",
-      wage: 1200,
-      requiredWorkers: 2,
-      availablePositions: 2,
-      bookedPositions: 0,
-      description: "Circulate among guests with starter trays.",
-      sortOrder: 3,
-    },
-    {
-      id: "cat-4",
-      name: "Juice Serving",
-      wage: 1100,
-      requiredWorkers: 2,
-      availablePositions: 2,
-      bookedPositions: 0,
-      description: "Serve soft drinks and juices at refreshment counters.",
-      sortOrder: 4,
-    },
-  ],
-  totalPositions: 12,
-  bookedPositions: 4,
-  availablePositions: 8,
-};
+    totalPositions: 5,
+    bookedPositions: 2,
+    availablePositions: 3, // 3 workers required!
+  };
+}
+
+const MOCK_JOB: JobDetail = buildMockJobDetail();
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -448,10 +437,14 @@ function CategoryCard({
   cat,
   index,
   isRapid,
+  jobId,
+  isJobClosed,
 }: {
   cat: WorkCategory;
   index: number;
   isRapid: boolean;
+  jobId?: string;
+  isJobClosed?: boolean;
 }) {
   const isCatFull = cat.availablePositions === 0;
   const isLow = !isCatFull && cat.availablePositions <= 2;
@@ -460,14 +453,14 @@ function CategoryCard({
       ? Math.round((cat.bookedPositions / cat.requiredWorkers) * 100)
       : 0;
 
-  return (
+  const cardContent = (
     <div
       className={`animate-bounce-in rounded-2xl border-2 p-5 transition-all duration-200 ${
-        isCatFull
+        isCatFull || isJobClosed
           ? "border-border bg-muted/20 opacity-60"
-          : isLow
-            ? "border-orange-500/40 bg-orange-500/5"
-            : "border-border bg-card hover:border-primary/40"
+          : isLow || isRapid
+            ? "border-orange-500/40 bg-orange-500/5 hover:border-orange-500 hover:shadow-md cursor-pointer"
+            : "border-border bg-card hover:border-primary/40 hover:shadow-md cursor-pointer"
       }`}
       style={{
         animationDelay: `${180 + index * 70}ms`,
@@ -479,7 +472,7 @@ function CategoryCard({
         <div className="flex items-center gap-3">
           <div
             className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${
-              isRapid && !isCatFull
+              isRapid && !isCatFull && !isJobClosed
                 ? "bg-orange-500/15 text-orange-600 dark:text-orange-400"
                 : "bg-primary/10 text-primary"
             }`}
@@ -487,7 +480,14 @@ function CategoryCard({
             {categoryIcon(cat.name)}
           </div>
           <div>
-            <h3 className="font-bold leading-tight">{cat.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold leading-tight">{cat.name}</h3>
+              {!isCatFull && !isJobClosed && (
+                <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider flex items-center gap-0.5">
+                  Select <ChevronRight className="size-3" />
+                </span>
+              )}
+            </div>
             {cat.description && (
               <p className="mt-0.5 text-xs text-muted-foreground leading-snug">
                 {cat.description}
@@ -500,9 +500,9 @@ function CategoryCard({
         <div className="text-right shrink-0">
           <p
             className={`font-display text-xl font-bold ${
-              isRapid && !isCatFull
+              isRapid && !isCatFull && !isJobClosed
                 ? "text-orange-600 dark:text-orange-400"
-                : isCatFull
+                : isCatFull || isJobClosed
                   ? "text-muted-foreground"
                   : "text-primary"
             }`}
@@ -519,11 +519,11 @@ function CategoryCard({
         <div className="flex-1">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
-              className={`h-full rounded-full transition-all duration-700 ${
-                isCatFull
+              className={`h-full rounded-full transition-all duration-700 ease-out ${
+                isCatFull || isJobClosed
                   ? "bg-muted-foreground/40"
-                  : isLow
-                    ? "bg-orange-500"
+                  : isLow || isRapid
+                    ? "bg-gradient-to-r from-orange-500 to-amber-400 animate-availability-urgent"
                     : "bg-primary"
               }`}
               style={{ width: `${fillPct}%` }}
@@ -539,7 +539,7 @@ function CategoryCard({
           <span className="text-muted-foreground/40">·</span>
           <span
             className={`font-bold ${
-              isCatFull
+              isCatFull || isJobClosed
                 ? "text-muted-foreground"
                 : isLow
                   ? "text-orange-600 dark:text-orange-400"
@@ -552,7 +552,7 @@ function CategoryCard({
       </div>
 
       {/* Low warning pill */}
-      {isLow && !isCatFull && (
+      {isLow && !isCatFull && !isJobClosed && (
         <div className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400">
           <span className="inline-block size-1.5 rounded-full bg-orange-500 animate-pulse" />
           Filling fast — {cat.availablePositions} position{cat.availablePositions !== 1 ? "s" : ""} left
@@ -565,6 +565,21 @@ function CategoryCard({
       )}
     </div>
   );
+
+  if (jobId && !isCatFull && !isJobClosed) {
+    return (
+      <Link
+        to="/work/$jobId/positions"
+        params={{ jobId }}
+        search={{ cat: cat.id }}
+        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-2xl"
+      >
+        {cardContent}
+      </Link>
+    );
+  }
+
+  return cardContent;
 }
 
 // ─── Section wrapper with stagger ─────────────────────────────────────────────
@@ -655,6 +670,52 @@ function JobDetailsPage() {
     return () => { cancelled = true; };
   }, [jobId]);
 
+  // Realtime position sync to keep category availability numbers up to date
+  useEffect(() => {
+    if (!jobId) return;
+    const sub = subscribeToJobPositions(jobId, ({ newRow }) => {
+      if (!newRow) return;
+      const catId = (newRow["category_id"] as string | null) ?? null;
+      const newStatus = (newRow["status"] as string) || "";
+
+      setJob((prev) => {
+        if (!prev) return prev;
+        const updatedCats = prev.workCategories.map((c) => {
+          if (catId && c.id !== catId) return c;
+          if (newStatus === "BOOKED" && c.availablePositions > 0) {
+            return {
+              ...c,
+              availablePositions: Math.max(0, c.availablePositions - 1),
+              bookedPositions: Math.min(c.requiredWorkers, c.bookedPositions + 1),
+            };
+          }
+          if (newStatus === "AVAILABLE" && c.bookedPositions > 0) {
+            return {
+              ...c,
+              availablePositions: Math.min(c.requiredWorkers, c.availablePositions + 1),
+              bookedPositions: Math.max(0, c.bookedPositions - 1),
+            };
+          }
+          return c;
+        });
+
+        const newAvail = updatedCats.reduce((s, c) => s + c.availablePositions, 0);
+        const newBooked = updatedCats.reduce((s, c) => s + c.bookedPositions, 0);
+
+        return {
+          ...prev,
+          workCategories: updatedCats,
+          availablePositions: newAvail,
+          bookedPositions: newBooked,
+        };
+      });
+    });
+
+    return () => {
+      sub.unsubscribe();
+    };
+  }, [jobId]);
+
   function handleApply() {
     if (!isLoggedIn) {
       openLoginModal({ type: "book-shift", payload: jobId });
@@ -702,14 +763,15 @@ function JobDetailsPage() {
     );
   }
 
+  const [isCutoff, setIsCutoff] = useState(false);
   const isFull = job.availablePositions === 0 && job.totalPositions > 0;
   const isExpired =
     job.isRapidJob &&
-    job.rapidJobExpiresAt &&
-    new Date(job.rapidJobExpiresAt) < new Date();
+    (isCutoff || (job.rapidJobExpiresAt && new Date(job.rapidJobExpiresAt) < new Date()));
   const isCancelled = job.status === "Cancelled";
-  const isJobClosed = isCancelled || (isExpired && job.availablePositions === 0);
+  const isJobClosed = isCancelled || isExpired || isCutoff;
 
+  const distanceInfo = getDistanceToJob(job.area);
   const dateLabel = formatDateLabel(job.jobDate, job.startTime, job.endTime);
   const duration = shiftDuration(job.startTime, job.endTime);
 
@@ -759,16 +821,16 @@ function JobDetailsPage() {
             <div className="flex-1 min-w-0">
 
               {/* Rapid badge */}
-              {job.isRapidJob && !isJobClosed && (
+              {job.isRapidJob && (
                 <div className="mb-3">
-                  {job.rapidJobExpiresAt ? (
-                    <RapidJobBadge
-                      rapidJobExpiresAt={job.rapidJobExpiresAt}
-                      variant="default"
-                    />
-                  ) : (
-                    <RapidJobBadge variant="default" />
-                  )}
+                  <RapidJobBadge
+                    jobDate={job.jobDate}
+                    startTime={job.startTime}
+                    endTime={job.endTime}
+                    rapidJobExpiresAt={job.rapidJobExpiresAt}
+                    onCutoff={() => setIsCutoff(true)}
+                    variant="default"
+                  />
                 </div>
               )}
 
@@ -788,6 +850,12 @@ function JobDetailsPage() {
                   {JOB_CATEGORY_LABELS[job.category as JobCategoryValue] ??
                     job.category}
                 </span>
+                {job.isRapidJob && (
+                  <span className="inline-flex items-center gap-1 rounded-xl border border-orange-500/40 bg-orange-500/10 px-3 py-1.5 text-sm font-bold text-orange-600 dark:text-orange-400">
+                    <Users className="size-3.5" aria-hidden="true" />
+                    {job.availablePositions} worker{job.availablePositions !== 1 ? "s" : ""} required
+                  </span>
+                )}
                 {isCancelled && (
                   <span className="inline-flex items-center gap-1.5 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-sm font-semibold text-destructive">
                     <X className="size-3.5" aria-hidden="true" />
@@ -804,9 +872,15 @@ function JobDetailsPage() {
               {/* Quick info strip */}
               <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                  <MapPin className="size-4 shrink-0" aria-hidden="true" />
+                  <MapPin className="size-4 shrink-0 text-orange-500" aria-hidden="true" />
                   <strong className="text-foreground">{job.venueName}</strong>
                   &nbsp;·&nbsp;{job.area}, {job.city}
+                  {distanceInfo.distanceDisplay && (
+                    <>
+                      &nbsp;·&nbsp;
+                      <span className="font-semibold text-foreground/80">{distanceInfo.distanceDisplay}</span>
+                    </>
+                  )}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
@@ -817,6 +891,28 @@ function JobDetailsPage() {
                   {duration} shift
                 </span>
               </div>
+
+              {/* Cutoff warning banner */}
+              {isJobClosed && (
+                <div className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm font-semibold text-destructive flex items-center gap-2.5">
+                  <Clock className="size-5 shrink-0" aria-hidden="true" />
+                  <span>
+                    Applications Closed: This rapid job has reached its cutoff time. No new applications can be accepted.
+                  </span>
+                </div>
+              )}
+
+              {/* Countdown block for rapid job */}
+              {job.isRapidJob && !isJobClosed && (
+                <div className="mt-5 max-w-sm">
+                  <RapidJobCountdownBlock
+                    jobDate={job.jobDate}
+                    startTime={job.startTime}
+                    rapidJobExpiresAt={job.rapidJobExpiresAt}
+                    onCutoff={() => setIsCutoff(true)}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Wage callout */}
@@ -891,6 +987,8 @@ function JobDetailsPage() {
                       cat={cat}
                       index={i}
                       isRapid={job.isRapidJob}
+                      jobId={job.id}
+                      isJobClosed={isJobClosed}
                     />
                   ))}
                 </div>
@@ -1343,7 +1441,7 @@ function CtaButton({
     return (
       <Button variant="outline" size="lg" disabled className={className}>
         <Clock className="size-4" aria-hidden="true" />
-        {job.status === "Cancelled" ? "Job Cancelled" : "Job Expired"}
+        {job.status === "Cancelled" ? "Job Cancelled" : "Applications Closed"}
       </Button>
     );
   }
